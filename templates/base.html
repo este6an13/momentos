@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A personal photo gallery — moments captured in time.">
+    <title>{% block title %}Gallery{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="site-logo">&#9632; gallery</a>
+            <nav class="site-nav">
+                <span class="nav-count" id="photo-count"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Lightbox modal -->
+    <div id="photo-modal" class="modal" role="dialog" aria-modal="true" aria-label="Photo detail">
+        <div class="modal-backdrop" onclick="closeModal()"></div>
+        <div class="modal-content" id="modal-content"></div>
+    </div>
+
+    <script>
+        function closeModal() {
+            const modal = document.getElementById('photo-modal');
+            modal.classList.remove('active');
+            document.body.classList.remove('modal-open');
+        }
+
+        function openModal() {
+            const modal = document.getElementById('photo-modal');
+            modal.classList.add('active');
+            document.body.classList.add('modal-open');
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                return;
+            }
+
+            const modal = document.getElementById('photo-modal');
+            if (!modal.classList.contains('active')) return;
+
+            const lb = document.getElementById('lightbox-inner');
+            if (!lb) return;
+
+            if (e.key === 'ArrowLeft') {
+                const prevId = lb.dataset.prevId;
+                if (prevId) htmx.ajax('GET', '/photo/' + prevId, { target: '#modal-content', swap: 'innerHTML' });
+            } else if (e.key === 'ArrowRight') {
+                const nextId = lb.dataset.nextId;
+                if (nextId) htmx.ajax('GET', '/photo/' + nextId, { target: '#modal-content', swap: 'innerHTML' });
+            }
+        });
+
+        // Update photo count after HTMX loads grid
+        document.addEventListener('htmx:afterSwap', function (e) {
+            const cards = document.querySelectorAll('.photo-card');
+            const countEl = document.getElementById('photo-count');
+            if (countEl && cards.length > 0) {
+                countEl.textContent = cards.length + ' photo' + (cards.length !== 1 ? 's' : '');
+            }
+        });
+    </script>
+</body>
+
+</html>

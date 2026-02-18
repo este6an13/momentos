@@ -1,0 +1,56 @@
+<div class="lightbox" id="lightbox-inner" data-photo-id="{{ photo.id }}" data-prev-id="{{ prev_id or '' }}"
+    data-next-id="{{ next_id or '' }}">
+
+    <button class="lightbox-close" onclick="closeModal()" aria-label="Close">&#10005;</button>
+
+    {% if prev_id %}
+    <button class="lightbox-arrow lightbox-arrow--prev" hx-get="/photo/{{ prev_id }}" hx-target="#modal-content"
+        hx-swap="innerHTML" aria-label="Previous photo">&#8592;</button>
+    {% endif %}
+
+    {% if next_id %}
+    <button class="lightbox-arrow lightbox-arrow--next" hx-get="/photo/{{ next_id }}" hx-target="#modal-content"
+        hx-swap="innerHTML" aria-label="Next photo">&#8594;</button>
+    {% endif %}
+
+    <div class="lightbox-image">
+        <img src="/static/images/{{ photo.filename }}" alt="{{ photo.title or photo.filename }}">
+    </div>
+
+    <div class="lightbox-meta">
+        <h2 class="meta-title">{{ photo.title or 'Untitled' }}</h2>
+
+        {% if photo.description %}
+        <p class="meta-description">{{ photo.description }}</p>
+        {% endif %}
+
+        <div class="meta-fields">
+            {% if photo.location %}
+            <div class="meta-field">
+                <span class="meta-label">Location</span>
+                <span class="meta-value">{{ photo.location }}</span>
+            </div>
+            {% endif %}
+
+            {% if photo.taken_at %}
+            <div class="meta-field">
+                <span class="meta-label">Date</span>
+                <span class="meta-value">{{ photo.taken_at.strftime('%b %d, %Y') }}</span>
+            </div>
+            {% endif %}
+
+            {% if photo.get_tags() %}
+            <div class="meta-field">
+                <span class="meta-label">Tags</span>
+                <div class="meta-tags">
+                    {% for tag in photo.get_tags() %}
+                    <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <p class="meta-filename">{{ photo.filename }}</p>
+    </div>
+</div>

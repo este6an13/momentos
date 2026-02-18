@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="gallery-wrapper">
+    <div class="gallery-hero">
+        <p class="gallery-tagline">moments, collected.</p>
+    </div>
+
+    <div id="photo-grid" hx-get="/photos" hx-trigger="load" hx-swap="innerHTML">
+        <div class="loading-state">
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
