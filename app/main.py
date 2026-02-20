@@ -9,8 +9,26 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import shutil
 import json
+import uuid
 from PIL import Image, ExifTags
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+from google.cloud import storage
+
+load_dotenv()
+
+STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local").lower()
+GCP_BUCKET_NAME = os.environ.get("GCP_BUCKET_NAME")
+CDN_DOMAIN = os.environ.get("CDN_DOMAIN")
+
+if STORAGE_BACKEND == "gcp" and not GCP_BUCKET_NAME:
+    print("WARNING: STORAGE_BACKEND is gcp but GCP_BUCKET_NAME is not set.")
+
+def get_gcp_bucket():
+    if not GCP_BUCKET_NAME:
+        return None
+    client = storage.Client()
+    return client.bucket(GCP_BUCKET_NAME)
 
 from .database import get_db, init_db
 from .models import Photo
@@ -22,6 +40,18 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
+
+# Register global template function for generating image URLs
+def get_image_url(filename: str) -> str:
+    if STORAGE_BACKEND == "gcp" and GCP_BUCKET_NAME:
+        if CDN_DOMAIN:
+            # If Cloudflare is fronting the bucket directly
+            return f"https://{CDN_DOMAIN}/{filename}"
+        # Fallback to direct GCP Bucket URL for local testing without CDN
+        return f"https://storage.googleapis.com/{GCP_BUCKET_NAME}/{filename}"
+    return f"/static/images/{filename}"
+
+templates.env.globals["get_image_url"] = get_image_url
 
 IMAGES_DIR = Path("static/images")
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".JPEG", ".PNG", ".WEBP"}
@@ -36,7 +66,11 @@ def _filename_to_title(filename: str) -> str:
 
 
 def scan_photos_folder(db: Session):
-    """Scan static/images/ and sync with database."""
+    """Scan static/images/ and sync with database. Disabled in GCP mode."""
+    if STORAGE_BACKEND == "gcp":
+        # In GCP mode, the DB is the source of truth; we don't scan the bucket.
+        return
+
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
     # Get all image files on disk
@@ -158,12 +192,29 @@ async def handle_upload(
     db: Session = Depends(get_db)
 ):
     """Handle photo upload and metadata"""
-    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Save file
-    file_path = IMAGES_DIR / file.filename
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Generate unique filename to prevent overwrites
+    file_ext = Path(file.filename).suffix
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    
+    if STORAGE_BACKEND == "gcp":
+        # We need a local temp path for EXIF extraction
+        temp_dir = Path("tmp")
+        temp_dir.mkdir(exist_ok=True)
+        file_path = temp_dir / unique_filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Upload to GCP
+        bucket = get_gcp_bucket()
+        if bucket:
+            blob = bucket.blob(unique_filename)
+            blob.upload_from_filename(file_path)
+    else:
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        file_path = IMAGES_DIR / unique_filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         
     # Extract EXIF wrapper
     exif_dict = {}
@@ -193,8 +244,12 @@ async def handle_upload(
     except Exception as e:
         print(f"Error extracting EXIF: {e}")
         
+    # Clean up temp file if in GCP mode
+    if STORAGE_BACKEND == "gcp" and file_path.exists():
+        file_path.unlink()
+        
     # Check if photo already exists in DB
-    photo = db.query(Photo).filter(Photo.filename == file.filename).first()
+    photo = db.query(Photo).filter(Photo.filename == unique_filename).first()
     
     parsed_taken_at = None
     if taken_at:
@@ -205,7 +260,7 @@ async def handle_upload(
             
     if not photo:
         photo = Photo(
-            filename=file.filename,
+            filename=unique_filename,
             uploaded_at=datetime.utcnow()
         )
         db.add(photo)

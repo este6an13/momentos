@@ -4,7 +4,7 @@
     <div class="photo-card" hx-get="/photo/{{ photo.id }}" hx-target="#modal-content" hx-swap="innerHTML"
         hx-on::after-request="openModal()" role="button" tabindex="0" aria-label="{{ photo.title or photo.filename }}">
         <div class="photo-thumb">
-            <img src="/static/images/{{ photo.filename }}" alt="{{ photo.title or photo.filename }}" loading="lazy">
+            <img src="{{ get_image_url(photo.filename) }}" alt="{{ photo.title or photo.filename }}" loading="lazy">
             <div class="photo-overlay">
                 <span class="overlay-title">{{ photo.title or photo.filename }}</span>
                 {% if photo.location %}

@@ -1,3 +1,5 @@
+tmp/
+secrets/
 photos.db
 static/images
 

@@ -14,7 +14,7 @@
     {% endif %}
 
     <div class="lightbox-image">
-        <img src="/static/images/{{ photo.filename }}" alt="{{ photo.title or photo.filename }}">
+        <img src="{{ get_image_url(photo.filename) }}" alt="{{ photo.title or photo.filename }}">
     </div>
 
     <div class="lightbox-meta">

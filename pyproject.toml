@@ -11,6 +11,8 @@ dependencies = [
     "aiofiles>=23.2.1",
     "python-multipart>=0.0.6",
     "pillow>=10.2.0",
+    "google-cloud-storage>=3.9.0",
+    "python-dotenv>=1.2.1",
 ]
 
 [tool.uv]

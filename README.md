@@ -59,10 +59,12 @@ photo-gallery/
 - **Database:** SQLite
 - **Styling:** Dark mode with modern CSS
 
-## Future Enhancements
+## Roadmap
 
-- Cloud storage integration (S3, Cloudflare R2)
-- Photo upload functionality
-- Search and filtering by tags/location
-- User authentication
-- PostgreSQL migration for production
+- Filtering/Search UI
+- Timeline Control
+- Local UI to Delete Photos
+- Local UI to Edit Photos Metadata
+- DB Deployment
+- CDN Config
+- Website Deployment
