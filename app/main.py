@@ -3,10 +3,13 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, UploadFile, File, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+import shutil
+import json
+from PIL import Image, ExifTags
 from sqlalchemy.orm import Session
 
 from .database import get_db, init_db
@@ -137,4 +140,88 @@ async def rescan_photos(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "photos": photos
     })
+
+@app.get("/upload", response_class=HTMLResponse)
+async def get_upload_page(request: Request):
+    """Render the upload interface"""
+    return templates.TemplateResponse("upload.html", {"request": request})
+
+@app.post("/upload")
+async def handle_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    description: str = Form(""),
+    location: str = Form(""),
+    taken_at: str = Form(""),
+    tags: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    """Handle photo upload and metadata"""
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Save file
+    file_path = IMAGES_DIR / file.filename
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Extract EXIF wrapper
+    exif_dict = {}
+    try:
+        with Image.open(file_path) as img:
+            exif = img.getexif()
+            if exif:
+                for k, v in exif.items():
+                    if k in ExifTags.TAGS:
+                        val = v
+                        if isinstance(val, bytes):
+                            try:
+                                val = val.decode('utf-8', errors='replace')
+                            except Exception:
+                                val = str(val)
+                        exif_dict[ExifTags.TAGS[k]] = str(val)
+                        
+            # If datetime original is in EXIF and taken_at wasn't manually specified
+            if not taken_at and "DateTimeOriginal" in exif_dict:
+                try:
+                    dt_str = exif_dict["DateTimeOriginal"]
+                    parts = dt_str.split(' ')
+                    date_str = parts[0].replace(':', '-')
+                    taken_at = f"{date_str}T{parts[1]}"
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"Error extracting EXIF: {e}")
+        
+    # Check if photo already exists in DB
+    photo = db.query(Photo).filter(Photo.filename == file.filename).first()
+    
+    parsed_taken_at = None
+    if taken_at:
+        try:
+            parsed_taken_at = datetime.fromisoformat(taken_at)
+        except ValueError:
+            pass # ignore invalid dates for now
+            
+    if not photo:
+        photo = Photo(
+            filename=file.filename,
+            uploaded_at=datetime.utcnow()
+        )
+        db.add(photo)
+    
+    photo.title = title or _filename_to_title(file.filename)
+    photo.description = description
+    photo.location = location
+    photo.taken_at = parsed_taken_at
+    photo.exif_data = json.dumps(exif_dict) if exif_dict else None
+    
+    # process tags
+    if tags:
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        photo.set_tags(tag_list)
+        
+    db.commit()
+    
+    return {"message": "success"}
 

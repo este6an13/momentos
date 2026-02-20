@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - Gallery{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <div class="upload-header">
+        <h1 class="upload-title">Upload Photo</h1>
+    </div>
+
+    <div class="upload-grid">
+        <div class="upload-dropzone" id="dropzone">
+            <div class="upload-icon">⇪</div>
+            <div class="upload-text">Drag and drop a photo here</div>
+            <div class="upload-hint">or click to browse</div>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <div class="upload-preview" id="previewArea">
+                <img id="imagePreview" src="" alt="Preview">
+            </div>
+        </div>
+
+        <form class="upload-form" id="uploadForm">
+            <div class="form-group">
+                <label class="form-label" for="title">Title</label>
+                <input class="form-input" type="text" id="title" name="title" placeholder="Leave blank to use filename">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="description">Description</label>
+                <textarea class="form-textarea" id="description" name="description"
+                    placeholder="A brief description of this moment..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="location">Location</label>
+                <input class="form-input" type="text" id="location" name="location" placeholder="e.g. Kyoto, Japan">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="taken_at">Date Taken</label>
+                <!-- Remove the step so that seconds aren't strictly required by the browser padding -->
+                <input class="form-input" type="datetime-local" id="taken_at" name="taken_at">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="tags">Tags (comma-separated)</label>
+                <input class="form-input" type="text" id="tags" name="tags" placeholder="nature, travel, film">
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Upload Photo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const previewArea = document.getElementById('previewArea');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadForm = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const takenAtInput = document.getElementById('taken_at');
+
+    let selectedFile = null;
+
+    // Trigger file input when clicking dropzone
+    dropzone.addEventListener('click', () => {
+        // Prevent click if we are clicking on the image preview
+        fileInput.click();
+    });
+
+    // Handle drag and drop events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false);
+    });
+
+    dropzone.addEventListener('drop', handleDrop, false);
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files), false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    function handleFiles(files) {
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/')) {
+                selectedFile = file;
+                previewFile(file);
+                submitBtn.disabled = false;
+
+                // Extract EXIF data
+                EXIF.getData(file, function () {
+                    const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
+                    if (dateTimeOriginal) {
+                        try {
+                            // Format: "YYYY:MM:DD HH:MM:SS" -> "YYYY-MM-DDTHH:MM"
+                            const parts = dateTimeOriginal.split(' ');
+                            const dateParts = parts[0].split(':');
+                            const timeParts = parts[1].split(':');
+                            const formatted = `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}T${timeParts[0]}:${timeParts[1]}`;
+                            takenAtInput.value = formatted;
+                        } catch (e) {
+                            console.log("Could not parse EXIF date", e);
+                        }
+                    } else {
+                        // Clear the input if no EXIF date found so the user can manually set it
+                        takenAtInput.value = "";
+                    }
+                });
+            } else {
+                alert('Please upload an image file.');
+            }
+        }
+    }
+
+    function previewFile(file) {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = function () {
+            imagePreview.src = reader.result;
+            previewArea.classList.add('active');
+        }
+    }
+
+    // Handle form submission
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selectedFile) return;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading...';
+
+        const formData = new FormData(uploadForm);
+        formData.append('file', selectedFile);
+
+        try {
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                alert('Upload successful!');
+                // Reset form
+                uploadForm.reset();
+                selectedFile = null;
+                previewArea.classList.remove('active');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Upload Photo';
+            } else {
+                alert('Upload failed. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload Photo';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred during upload.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Upload Photo';
+        }
+    });
+</script>
+{% endblock %}
