@@ -20,6 +20,9 @@
         <div class="header-inner">
             <a href="/" class="site-logo">&#9632; gallery</a>
             <nav class="site-nav">
+                <input type="search" class="search-input" name="q" placeholder="Search photos..."
+                    style="padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid #ccc; background: transparent; color: inherit; font-size: 0.9rem; width: 250px; margin-right: 1.5rem;"
+                    hx-get="/photos" hx-target="#photo-grid" hx-trigger="input changed delay:400ms, search">
                 <span class="nav-count" id="photo-count"></span>
             </nav>
         </div>
