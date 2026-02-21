@@ -13,7 +13,7 @@ import json
 import uuid
 from PIL import Image, ExifTags
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from dotenv import load_dotenv
 from google.cloud import storage
 
@@ -130,7 +130,7 @@ async def index(request: Request):
 
 
 @app.get("/photos", response_class=HTMLResponse)
-async def get_photos(request: Request, q: Optional[str] = None, db: Session = Depends(get_db)):
+async def get_photos(request: Request, q: Optional[str] = None, sort: str = "desc", db: Session = Depends(get_db)):
     """HTMX endpoint for photo grid — always syncs folder first"""
     scan_photos_folder(db)
     
@@ -147,10 +147,25 @@ async def get_photos(request: Request, q: Optional[str] = None, db: Session = De
             )
         )
         
-    photos = query.order_by(Photo.uploaded_at.desc()).all()
+    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+    if sort == "asc":
+        photos = query.order_by(sort_column.asc()).all()
+    else:
+        photos = query.order_by(sort_column.desc()).all()
+        
+    # Group photos by year
+    photos_by_year = {}
+    for p in photos:
+        dt = p.taken_at or p.uploaded_at
+        year = dt.year if dt else "Unknown"
+        if year not in photos_by_year:
+            photos_by_year[year] = []
+        photos_by_year[year].append(p)
+
     return templates.TemplateResponse("photo_grid.html", {
         "request": request,
-        "photos": photos
+        "photos_by_year": photos_by_year,
+        "current_sort": sort
     })
 
 
@@ -182,13 +197,28 @@ async def get_photo_detail(photo_id: int, request: Request, db: Session = Depend
 
 
 @app.post("/photos/scan", response_class=HTMLResponse)
-async def rescan_photos(request: Request, db: Session = Depends(get_db)):
+async def rescan_photos(request: Request, sort: str = "desc", db: Session = Depends(get_db)):
     """Manually re-trigger folder scan and refresh the grid"""
     scan_photos_folder(db)
-    photos = db.query(Photo).order_by(Photo.uploaded_at.desc()).all()
+    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+    if sort == "asc":
+        photos = db.query(Photo).order_by(sort_column.asc()).all()
+    else:
+        photos = db.query(Photo).order_by(sort_column.desc()).all()
+        
+    # Group photos by year
+    photos_by_year = {}
+    for p in photos:
+        dt = p.taken_at or p.uploaded_at
+        year = dt.year if dt else "Unknown"
+        if year not in photos_by_year:
+            photos_by_year[year] = []
+        photos_by_year[year].append(p)
+        
     return templates.TemplateResponse("photo_grid.html", {
         "request": request,
-        "photos": photos
+        "photos_by_year": photos_by_year,
+        "current_sort": sort
     })
 
 @app.get("/upload", response_class=HTMLResponse)

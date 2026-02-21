@@ -19,10 +19,24 @@
     <header class="site-header">
         <div class="header-inner">
             <a href="/" class="site-logo">&#9632; gallery</a>
-            <nav class="site-nav">
-                <input type="search" class="search-input" name="q" placeholder="Search photos..."
-                    style="padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid #ccc; background: transparent; color: inherit; font-size: 0.9rem; width: 250px; margin-right: 1.5rem;"
-                    hx-get="/photos" hx-target="#photo-grid" hx-trigger="input changed delay:400ms, search">
+            <nav class="site-nav" style="display: flex; align-items: center; gap: 1rem;">
+                <form id="search-form" hx-get="/photos" hx-target="#photo-grid"
+                    hx-trigger="input from:.search-input delay:400ms, change from:.sort-input, search"
+                    style="display: flex; align-items: center; margin: 0; gap: 1rem;">
+                    <input type="search" class="search-input" name="q" placeholder="Search photos..."
+                        style="padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid #ccc; background: transparent; color: inherit; font-size: 0.9rem; width: 250px;">
+
+                    <label
+                        style="display: flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.06); width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); transition: all 0.2s;"
+                        title="Toggle Timeline Sort" onmouseover="this.style.background='rgba(255,255,255,0.12)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                        <input type="checkbox" class="sort-input" style="display: none;"
+                            onchange="document.getElementById('sort-hidden').value = this.checked ? 'asc' : 'desc'; document.getElementById('sort-icon').innerText = this.checked ? '↑' : '↓'">
+                        <input type="hidden" id="sort-hidden" name="sort" value="desc">
+                        <span id="sort-icon"
+                            style="font-size: 1.1rem; line-height: 1; color: var(--text-secondary);">↓</span>
+                    </label>
+                </form>
                 <span class="nav-count" id="photo-count"></span>
             </nav>
         </div>
