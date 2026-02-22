@@ -338,8 +338,9 @@ async def handle_upload(
         
     db.commit()
     
-    # Sync to GCP if in Admin Mode
-    upload_db_to_gcp()
+    # Sync to GCP if in GCP Admin Mode
+    if STORAGE_BACKEND == "gcp":
+        upload_db_to_gcp("photos.db")
     
     return {"message": "success"}
 
@@ -367,8 +368,9 @@ async def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     db.delete(photo)
     db.commit()
     
-    # Sync to GCP if in Admin Mode
-    upload_db_to_gcp()
+    # Sync to GCP if in GCP Admin Mode
+    if STORAGE_BACKEND == "gcp":
+        upload_db_to_gcp("photos.db")
 
     response = HTMLResponse(content="")
     response.headers["HX-Trigger"] = "photoDeleted"
@@ -423,8 +425,9 @@ async def update_photo(
 
     db.commit()
 
-    # Sync to GCP if in Admin Mode
-    upload_db_to_gcp()
+    # Sync to GCP if in GCP Admin Mode
+    if STORAGE_BACKEND == "gcp":
+        upload_db_to_gcp("photos.db")
 
     # Re-fetch neighbor IDs for identical rendering context to normal detail view
     all_rows = db.query(Photo.id).order_by(Photo.uploaded_at.desc()).all()

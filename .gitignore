@@ -1,6 +1,7 @@
 tmp/
 secrets/
 photos.db
+photos-local.db
 static/images
 
 # Python-generated files
