@@ -33,8 +33,11 @@ def get_gcp_bucket():
     client = storage.Client()
     return client.bucket(GCP_BUCKET_NAME)
 
+from google.cloud import storage
+
 from .database import get_db, init_db
 from .models import Photo
+from .gcp_utils import upload_db_to_gcp, download_db_from_gcp
 
 app = FastAPI(title="Photo Gallery")
 
@@ -113,6 +116,11 @@ def scan_photos_folder(db: Session):
 
 @app.on_event("startup")
 async def startup_event():
+    if STORAGE_BACKEND == "gcp":
+        # Download the DB from the private bucket before initializing
+        print("GCP mode enabled: checking for existing DB in private bucket...")
+        download_db_from_gcp("photos.db")
+        
     init_db()
     db_gen = get_db()
     db = next(db_gen)
@@ -330,6 +338,9 @@ async def handle_upload(
         
     db.commit()
     
+    # Sync to GCP if in Admin Mode
+    upload_db_to_gcp()
+    
     return {"message": "success"}
 
 @app.delete("/photo/{photo_id}")
@@ -355,6 +366,9 @@ async def delete_photo(photo_id: int, db: Session = Depends(get_db)):
 
     db.delete(photo)
     db.commit()
+    
+    # Sync to GCP if in Admin Mode
+    upload_db_to_gcp()
 
     response = HTMLResponse(content="")
     response.headers["HX-Trigger"] = "photoDeleted"
@@ -408,6 +422,9 @@ async def update_photo(
     photo.set_tags(tag_list)
 
     db.commit()
+
+    # Sync to GCP if in Admin Mode
+    upload_db_to_gcp()
 
     # Re-fetch neighbor IDs for identical rendering context to normal detail view
     all_rows = db.query(Photo.id).order_by(Photo.uploaded_at.desc()).all()
