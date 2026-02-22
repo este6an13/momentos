@@ -4,7 +4,7 @@ from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Depends, UploadFile, File, Form
+from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -22,6 +22,7 @@ load_dotenv()
 STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local").lower()
 GCP_BUCKET_NAME = os.environ.get("GCP_BUCKET_NAME")
 CDN_DOMAIN = os.environ.get("CDN_DOMAIN")
+ADMIN_MODE = os.environ.get("ADMIN_MODE", "false").lower() == "true"
 
 if STORAGE_BACKEND == "gcp" and not GCP_BUCKET_NAME:
     print("WARNING: STORAGE_BACKEND is gcp but GCP_BUCKET_NAME is not set.")
@@ -54,6 +55,7 @@ def get_image_url(filename: str) -> str:
     return f"/static/images/{filename}"
 
 templates.env.globals["get_image_url"] = get_image_url
+templates.env.globals["admin_mode"] = ADMIN_MODE
 
 IMAGES_DIR = Path("static/images")
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".JPEG", ".PNG", ".WEBP"}
@@ -224,6 +226,8 @@ async def rescan_photos(request: Request, sort: str = "desc", db: Session = Depe
 @app.get("/upload", response_class=HTMLResponse)
 async def get_upload_page(request: Request):
     """Render the upload interface"""
+    if not ADMIN_MODE:
+        raise HTTPException(status_code=403, detail="Upload interface only available in Admin Mode.")
     return templates.TemplateResponse("upload.html", {"request": request})
 
 @app.post("/upload")
@@ -238,6 +242,8 @@ async def handle_upload(
     db: Session = Depends(get_db)
 ):
     """Handle photo upload and metadata"""
+    if not ADMIN_MODE:
+        raise HTTPException(status_code=403, detail="Upload only available in Admin Mode.")
     
     # Generate unique filename to prevent overwrites
     file_ext = Path(file.filename).suffix
@@ -325,4 +331,98 @@ async def handle_upload(
     db.commit()
     
     return {"message": "success"}
+
+@app.delete("/photo/{photo_id}")
+async def delete_photo(photo_id: int, db: Session = Depends(get_db)):
+    if not ADMIN_MODE:
+        raise HTTPException(status_code=403, detail="Admin mode strictly required for deleting.")
+    
+    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+    if not photo:
+        return Response(status_code=404)
+
+    # Delete file from storage
+    if STORAGE_BACKEND == "gcp" and GCP_BUCKET_NAME:
+        bucket = get_gcp_bucket()
+        if bucket:
+            blob = bucket.blob(photo.filename)
+            if blob.exists():
+                blob.delete()
+    else:
+        file_path = IMAGES_DIR / photo.filename
+        if file_path.exists():
+            file_path.unlink()
+
+    db.delete(photo)
+    db.commit()
+
+    response = HTMLResponse(content="")
+    response.headers["HX-Trigger"] = "photoDeleted"
+    return response
+
+@app.get("/photo/{photo_id}/edit", response_class=HTMLResponse)
+async def get_photo_edit(photo_id: int, request: Request, db: Session = Depends(get_db)):
+    if not ADMIN_MODE:
+        raise HTTPException(status_code=403, detail="Admin mode strictly required for editing.")
+    
+    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+    if not photo:
+        return Response(status_code=404)
+
+    return templates.TemplateResponse("photo_edit_form.html", {
+        "request": request,
+        "photo": photo
+    })
+
+@app.post("/photo/{photo_id}/edit", response_class=HTMLResponse)
+async def update_photo(
+    photo_id: int,
+    request: Request,
+    title: str = Form(""),
+    description: str = Form(""),
+    location: str = Form(""),
+    taken_at: str = Form(""),
+    tags: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    if not ADMIN_MODE:
+        raise HTTPException(status_code=403, detail="Admin mode strictly required for editing.")
+
+    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+    if not photo:
+        return Response(status_code=404)
+
+    photo.title = title
+    photo.description = description
+    photo.location = location
+    
+    if taken_at:
+        try:
+            photo.taken_at = datetime.fromisoformat(taken_at)
+        except ValueError:
+            pass
+    elif taken_at == "":
+        photo.taken_at = None
+
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    photo.set_tags(tag_list)
+
+    db.commit()
+
+    # Re-fetch neighbor IDs for identical rendering context to normal detail view
+    all_rows = db.query(Photo.id).order_by(Photo.uploaded_at.desc()).all()
+    all_ids = [int(row[0]) for row in all_rows]
+    try:
+        idx = all_ids.index(photo_id)
+    except ValueError:
+        idx = -1
+    prev_id = all_ids[idx - 1] if idx > 0 else None
+    next_id = all_ids[idx + 1] if idx >= 0 and idx < len(all_ids) - 1 else None
+
+    return templates.TemplateResponse("photo_detail.html", {
+        "request": request,
+        "photo": photo,
+        "prev_id": prev_id,
+        "next_id": next_id,
+    })
 

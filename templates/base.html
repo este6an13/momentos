@@ -86,6 +86,12 @@
             }
         });
 
+        document.body.addEventListener('photoDeleted', function (e) {
+            closeModal();
+            // trigger search to reload grid
+            htmx.trigger('#search-form', 'search');
+        });
+
         // Update photo count after HTMX loads grid
         document.addEventListener('htmx:afterSwap', function (e) {
             const cards = document.querySelectorAll('.photo-card');
