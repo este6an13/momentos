@@ -61,10 +61,5 @@ photo-gallery/
 
 ## Roadmap
 
-- Filtering/Search UI
-- Timeline Control
-- Local UI to Delete Photos
-- Local UI to Edit Photos Metadata
-- DB Deployment
-- CDN Config
-- Website Deployment
+- UI Enhancements
+- Domain

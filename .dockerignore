@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Local databases
+*.db
+photos.db
+photos-local.db
+tmp/
+
+# Local static uploads (we don't want local testing images in prod container)
+static/images/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# GCP secrets
+secrets/
+*.json
