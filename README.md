@@ -62,4 +62,5 @@ photo-gallery/
 ## Roadmap
 
 - UI Enhancements
+- Trigger DB Download w/o Deployment
 - Domain

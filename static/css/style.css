@@ -113,7 +113,7 @@ a {
 .gallery-wrapper {
     max-width: 1600px;
     margin: 0 auto;
-    padding: 0 1.5rem 6rem;
+    padding: 0 1.5rem 2rem;
 }
 
 /* ── Hero Tagline ── */
@@ -504,6 +504,93 @@ a {
     word-break: break-all;
 }
 
+/* ── Footer ── */
+.site-footer {
+    margin-top: auto;
+    padding: 4rem 2rem;
+    border-top: 1px solid var(--border);
+    background-color: var(--bg);
+}
+
+.footer-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-copyright {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
+
+.footer-tagline {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+/* ── Tag Input Chips ── */
+.tag-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background-color: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-height: 48px;
+    transition: border-color var(--transition);
+    cursor: text;
+}
+
+.tag-input-container:focus-within {
+    border-color: var(--text-accent);
+}
+
+.tag-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background-color: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.6rem;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.tag-chip-remove {
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--text-muted);
+    transition: color var(--transition);
+}
+
+.tag-chip-remove:hover {
+    color: var(--text-accent);
+}
+
+#tag-input-field {
+    flex: 1;
+    min-width: 120px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+}
+
+#tag-input-field:focus {
+    outline: none;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
     .masonry-grid {
@@ -569,9 +656,24 @@ a {
 }
 
 @media (max-width: 480px) {
+    .site-header {
+        position: relative;
+    }
+
+    .header-inner {
+        padding: 0 1rem;
+        height: 50px;
+    }
+
+    .search-input {
+        display: none;
+        /* Hide search bar on very small phones to avoid overflow */
+    }
+
     .masonry-grid {
-        columns: 2 120px;
+        columns: 2 auto;
         column-gap: 4px;
+        margin-top: 0.5rem;
     }
 
     .photo-card {
@@ -580,6 +682,29 @@ a {
 
     .gallery-tagline {
         font-size: 1.25rem;
+    }
+
+    .footer-inner {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+    }
+
+    .lightbox-image {
+        padding: 3rem 0;
+        background-color: #000;
+    }
+
+    .lightbox-image img {
+        max-height: 70vh;
+        width: 100%;
+        border-radius: 0;
+    }
+
+    .lightbox-arrow {
+        width: 36px;
+        height: 36px;
+        background: rgba(0, 0, 0, 0.5);
     }
 }
 

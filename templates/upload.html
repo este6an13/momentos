@@ -43,8 +43,12 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="tags">Tags (comma-separated)</label>
-                <input class="form-input" type="text" id="tags" name="tags" placeholder="nature, travel, film">
+                <label class="form-label">Tags (press space or enter to add)</label>
+                <div class="tag-input-container" id="tag-container">
+                    <input type="text" id="tag-input-field" placeholder="nature, travel, film">
+                </div>
+                <!-- Hidden input to store comma-separated tags for form submission -->
+                <input type="hidden" id="tags" name="tags">
             </div>
 
             <div class="form-actions">
@@ -60,11 +64,59 @@
     const fileInput = document.getElementById('fileInput');
     const previewArea = document.getElementById('previewArea');
     const imagePreview = document.getElementById('imagePreview');
-    const uploadForm = document.getElementById('uploadForm');
     const submitBtn = document.getElementById('submitBtn');
     const takenAtInput = document.getElementById('taken_at');
+    const tagContainer = document.getElementById('tag-container');
+    const tagInputField = document.getElementById('tag-input-field');
+    const hiddenTagsInput = document.getElementById('tags');
 
     let selectedFile = null;
+    let tags = [];
+
+    function updateTags() {
+        // Remove existing chips
+        const existingChips = tagContainer.querySelectorAll('.tag-chip');
+        existingChips.forEach(chip => chip.remove());
+
+        // Add new chips
+        tags.forEach((tag, index) => {
+            const chip = document.createElement('div');
+            chip.className = 'tag-chip';
+            chip.innerHTML = `
+                <span>${tag}</span>
+                <span class="tag-chip-remove" onclick="removeTag(${index})">&times;</span>
+            `;
+            tagContainer.insertBefore(chip, tagInputField);
+        });
+
+        // Update hidden input
+        hiddenTagsInput.value = tags.join(', ');
+    }
+
+    window.removeTag = function (index) {
+        tags.splice(index, 1);
+        updateTags();
+    };
+
+    tagInputField.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const val = tagInputField.value.trim().replace(/,/g, '');
+            if (val && !tags.includes(val)) {
+                tags.push(val);
+                tagInputField.value = '';
+                updateTags();
+            }
+        } else if (e.key === 'Backspace' && tagInputField.value === '' && tags.length > 0) {
+            tags.pop();
+            updateTags();
+        }
+    });
+
+    // Handle clicks on container to focus input
+    tagContainer.addEventListener('click', () => {
+        tagInputField.focus();
+    });
 
     // Trigger file input when clicking dropzone
     dropzone.addEventListener('click', () => {
@@ -166,6 +218,8 @@
                 previewArea.classList.remove('active');
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Upload Photo';
+                tags = [];
+                updateTags();
             } else {
                 alert('Upload failed. Please try again.');
                 submitBtn.disabled = false;

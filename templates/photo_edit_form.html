@@ -42,9 +42,14 @@
 
             <div style="display: flex; flex-direction: column; gap: 0.3rem;">
                 <label style="font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em;">Tags
-                    (comma-separated)</label>
-                <input type="text" name="tags" value="{{ photo.tags or '' }}"
-                    style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 4px; font-family: inherit;">
+                    (press space or enter to add)</label>
+                <div class="tag-input-container" id="edit-tag-container"
+                    style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 0.5rem;">
+                    <input type="text" id="edit-tag-input-field"
+                        style="border: none; background: transparent; color: white; flex: 1; min-width: 100px; outline: none; font-family: inherit; font-size: 0.9rem;"
+                        placeholder="nature, travel...">
+                </div>
+                <input type="hidden" id="edit-tags-hidden" name="tags" value="{{ photo.tags or '' }}">
             </div>
 
             <div class="admin-actions"
@@ -57,4 +62,59 @@
             </div>
         </form>
     </div>
+
+    <script>
+        (function () {
+            const container = document.getElementById('edit-tag-container');
+            const input = document.getElementById('edit-tag-input-field');
+            const hidden = document.getElementById('edit-tags-hidden');
+
+            // Initial tags from server-side template
+            let tags = hidden.value ? hidden.value.split(',').map(t => t.trim()).filter(t => t !== "") : [];
+
+            function update() {
+                // Remove existing chips
+                container.querySelectorAll('.tag-chip').forEach(c => c.remove());
+
+                // Add chips
+                tags.forEach((tag, index) => {
+                    const chip = document.createElement('div');
+                    chip.className = 'tag-chip';
+                    chip.style.cssText = 'display: flex; align-items: center; gap: 0.4rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); padding: 0.2rem 0.6rem; border-radius: 16px; font-size: 0.75rem; color: #ccc; margin: 0.2rem;';
+                    chip.innerHTML = `
+                        <span>${tag}</span>
+                        <span style="cursor: pointer; font-size: 1.1rem; line-height: 1; color: #888;" onclick="window.removeEditTag(${index})">&times;</span>
+                    `;
+                    container.insertBefore(chip, input);
+                });
+
+                hidden.value = tags.join(', ');
+            }
+
+            window.removeEditTag = function (index) {
+                tags.splice(index, 1);
+                update();
+            };
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    const val = input.value.trim().replace(/,/g, '');
+                    if (val && !tags.includes(val)) {
+                        tags.push(val);
+                        input.value = '';
+                        update();
+                    }
+                } else if (e.key === 'Backspace' && input.value === '' && tags.length > 0) {
+                    tags.pop();
+                    update();
+                }
+            });
+
+            container.addEventListener('click', () => input.focus());
+
+            // Run initial update
+            update();
+        })();
+    </script>
 </div>

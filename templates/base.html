@@ -52,7 +52,18 @@
         <div class="modal-content" id="modal-content"></div>
     </div>
 
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-copyright">
+                &copy; <span id="current-year"></span> Diego Esteban
+            </div>
+            <div class="footer-tagline">moments, collected.</div>
+        </div>
+    </footer>
+
     <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
         function closeModal() {
             const modal = document.getElementById('photo-modal');
             modal.classList.remove('active');
@@ -64,6 +75,39 @@
             modal.classList.add('active');
             document.body.classList.add('modal-open');
         }
+
+        // Swipe support
+        let touchstartX = 0;
+        let touchendX = 0;
+
+        function handleGesture() {
+            const modal = document.getElementById('photo-modal');
+            if (!modal.classList.contains('active')) return;
+
+            const lb = document.getElementById('lightbox-inner');
+            if (!lb) return;
+
+            const threshold = 50;
+            if (touchendX < touchstartX - threshold) {
+                // Swiped left -> Next
+                const nextId = lb.dataset.nextId;
+                if (nextId) htmx.ajax('GET', '/photo/' + nextId, { target: '#modal-content', swap: 'innerHTML' });
+            }
+            if (touchendX > touchstartX + threshold) {
+                // Swiped right -> Previous
+                const prevId = lb.dataset.prevId;
+                if (prevId) htmx.ajax('GET', '/photo/' + prevId, { target: '#modal-content', swap: 'innerHTML' });
+            }
+        }
+
+        document.getElementById('photo-modal').addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        document.getElementById('photo-modal').addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            handleGesture();
+        }, { passive: true });
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
