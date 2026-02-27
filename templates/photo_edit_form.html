@@ -49,7 +49,7 @@
                         style="border: none; background: transparent; color: white; flex: 1; min-width: 100px; outline: none; font-family: inherit; font-size: 0.9rem;"
                         placeholder="nature, travel...">
                 </div>
-                <input type="hidden" id="edit-tags-hidden" name="tags" value="{{ photo.tags or '' }}">
+                <input type="hidden" id="edit-tags-hidden" name="tags" value="{{ photo.get_tags()|join(', ') }}">
             </div>
 
             <div class="admin-actions"
