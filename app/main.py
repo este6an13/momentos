@@ -1,5 +1,6 @@
 import os
 import re
+import random
 from typing import Optional
 from pathlib import Path
 from datetime import datetime
@@ -157,20 +158,27 @@ async def get_photos(request: Request, q: Optional[str] = None, sort: str = "des
             )
         )
         
-    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
-    if sort == "asc":
-        photos = query.order_by(sort_column.asc()).all()
+    if sort == "shuffle":
+        photos = query.all()
+        random.shuffle(photos)
     else:
-        photos = query.order_by(sort_column.desc()).all()
+        sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+        if sort == "asc":
+            photos = query.order_by(sort_column.asc()).all()
+        else:
+            photos = query.order_by(sort_column.desc()).all()
         
     # Group photos by year
     photos_by_year = {}
-    for p in photos:
-        dt = p.taken_at or p.uploaded_at
-        year = dt.year if dt else "Unknown"
-        if year not in photos_by_year:
-            photos_by_year[year] = []
-        photos_by_year[year].append(p)
+    if sort == "shuffle":
+        photos_by_year["Shuffled"] = photos
+    else:
+        for p in photos:
+            dt = p.taken_at or p.uploaded_at
+            year = dt.year if dt else "Unknown"
+            if year not in photos_by_year:
+                photos_by_year[year] = []
+            photos_by_year[year].append(p)
 
     return templates.TemplateResponse("photo_grid.html", {
         "request": request,
@@ -180,14 +188,18 @@ async def get_photos(request: Request, q: Optional[str] = None, sort: str = "des
 
 
 @app.get("/photo/{photo_id}", response_class=HTMLResponse)
-async def get_photo_detail(photo_id: int, request: Request, db: Session = Depends(get_db)):
+async def get_photo_detail(photo_id: int, request: Request, sort: str = "desc", db: Session = Depends(get_db)):
     """HTMX endpoint for photo details with prev/next navigation"""
     photo = db.query(Photo).filter(Photo.id == photo_id).first()
     if not photo:
         return HTMLResponse(content="Photo not found", status_code=404)
 
-    # Get ordered list of all IDs (same order as grid: newest first)
-    all_rows = db.query(Photo.id).order_by(Photo.uploaded_at.desc()).all()
+    # Use same ordering as the grid: coalesce(taken_at, uploaded_at)
+    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+    if sort == "asc":
+        all_rows = db.query(Photo.id).order_by(sort_column.asc()).all()
+    else:
+        all_rows = db.query(Photo.id).order_by(sort_column.desc()).all()
     all_ids: list[int] = [int(row[0]) for row in all_rows]
     
     try:
@@ -203,6 +215,7 @@ async def get_photo_detail(photo_id: int, request: Request, db: Session = Depend
         "photo": photo,
         "prev_id": prev_id,
         "next_id": next_id,
+        "current_sort": sort,
     })
 
 
@@ -429,8 +442,9 @@ async def update_photo(
     if STORAGE_BACKEND == "gcp":
         upload_db_to_gcp("photos.db")
 
-    # Re-fetch neighbor IDs for identical rendering context to normal detail view
-    all_rows = db.query(Photo.id).order_by(Photo.uploaded_at.desc()).all()
+    # Re-fetch neighbor IDs using same ordering as grid
+    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+    all_rows = db.query(Photo.id).order_by(sort_column.desc()).all()
     all_ids = [int(row[0]) for row in all_rows]
     try:
         idx = all_ids.index(photo_id)
@@ -444,5 +458,6 @@ async def update_photo(
         "photo": photo,
         "prev_id": prev_id,
         "next_id": next_id,
+        "current_sort": "desc",
     })
 

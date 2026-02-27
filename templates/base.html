@@ -12,6 +12,8 @@
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
 </head>
 
@@ -26,16 +28,18 @@
                     <input type="search" class="search-input" name="q" placeholder="Search photos..."
                         style="padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid #ccc; background: transparent; color: inherit; font-size: 0.9rem; width: 250px;">
 
-                    <label
-                        style="display: flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.06); width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); transition: all 0.2s;"
-                        title="Toggle Timeline Sort" onmouseover="this.style.background='rgba(255,255,255,0.12)'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                    <label class="nav-btn-circle" title="Toggle Timeline Sort">
                         <input type="checkbox" class="sort-input" style="display: none;"
-                            onchange="document.getElementById('sort-hidden').value = this.checked ? 'asc' : 'desc'; document.getElementById('sort-icon').innerText = this.checked ? '↑' : '↓'">
+                            onchange="document.getElementById('sort-hidden').value = this.checked ? 'asc' : 'desc'; document.getElementById('sort-icon').innerText = this.checked ? '↑' : '↓'; deactivateShuffle()">
                         <input type="hidden" id="sort-hidden" name="sort" value="desc">
                         <span id="sort-icon"
                             style="font-size: 1.1rem; line-height: 1; color: var(--text-secondary);">↓</span>
                     </label>
+
+                    <button type="button" id="shuffle-btn" class="nav-btn-circle nav-icon-btn" title="Shuffle Photos"
+                        onclick="toggleShuffle()">
+                        <span class="material-symbols-outlined">shuffle</span>
+                    </button>
                 </form>
                 <span class="nav-count" id="photo-count"></span>
             </nav>
@@ -64,21 +68,106 @@
     <script>
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
+        /* ── Shuffle ── */
+        function toggleShuffle() {
+            const btn = document.getElementById('shuffle-btn');
+            const sortHidden = document.getElementById('sort-hidden');
+            if (sortHidden.value === 'shuffle') {
+                deactivateShuffle();
+            } else {
+                sortHidden.value = 'shuffle';
+                btn.classList.add('active');
+                btn.title = 'Disable Shuffle';
+            }
+            htmx.trigger('#search-form', 'search');
+        }
+
+        function deactivateShuffle() {
+            const btn = document.getElementById('shuffle-btn');
+            const sortHidden = document.getElementById('sort-hidden');
+            const chk = document.querySelector('.sort-input');
+            btn.classList.remove('active');
+            btn.title = 'Shuffle Photos';
+            if (sortHidden.value === 'shuffle') {
+                sortHidden.value = chk && chk.checked ? 'asc' : 'desc';
+            }
+        }
+
+        /* ── Modal ── */
         function closeModal() {
             const modal = document.getElementById('photo-modal');
             modal.classList.remove('active');
             document.body.classList.remove('modal-open');
+            clearControlTimer();
         }
 
         function openModal() {
             const modal = document.getElementById('photo-modal');
             modal.classList.add('active');
             document.body.classList.add('modal-open');
+            resetControlTimer();
         }
 
-        // Swipe support
+        /* ── Auto-hide lightbox controls ── */
+        let controlTimer = null;
+
+        function resetControlTimer() {
+            const controls = document.querySelector('.lightbox-controls');
+            if (controls) {
+                controls.classList.remove('controls-hidden');
+            }
+            clearTimeout(controlTimer);
+            controlTimer = setTimeout(() => {
+                const c = document.querySelector('.lightbox-controls');
+                if (c) c.classList.add('controls-hidden');
+            }, 3000);
+        }
+
+        function clearControlTimer() {
+            clearTimeout(controlTimer);
+            controlTimer = null;
+        }
+
+        // Toggle controls on tap/click on the lightbox image area
+        document.getElementById('photo-modal').addEventListener('click', function (e) {
+            // Ignore clicks on buttons, meta panel, or admin actions
+            if (e.target.closest('.lightbox-arrow, .lightbox-close, .lightbox-meta, .admin-actions')) return;
+
+            const controls = document.querySelector('.lightbox-controls');
+            if (!controls) return;
+
+            if (controls.classList.contains('controls-hidden')) {
+                controls.classList.remove('controls-hidden');
+                resetControlTimer();
+            } else {
+                controls.classList.add('controls-hidden');
+                clearTimeout(controlTimer);
+            }
+        });
+
+        // Show controls on mouse movement
+        document.getElementById('photo-modal').addEventListener('mousemove', function () {
+            const modal = document.getElementById('photo-modal');
+            if (modal.classList.contains('active')) {
+                resetControlTimer();
+            }
+        });
+
+        /* ── Slide animation ── */
+        let slideDirection = null;
+
+        function setSlideDirection(dir) {
+            slideDirection = dir; // 'left' or 'right'
+        }
+
+        /* ── Swipe support ── */
         let touchstartX = 0;
         let touchendX = 0;
+
+        function getCurrentSort() {
+            const lb = document.getElementById('lightbox-inner');
+            return lb ? (lb.dataset.sort || 'desc') : 'desc';
+        }
 
         function handleGesture() {
             const modal = document.getElementById('photo-modal');
@@ -87,16 +176,23 @@
             const lb = document.getElementById('lightbox-inner');
             if (!lb) return;
 
+            const sort = getCurrentSort();
             const threshold = 50;
             if (touchendX < touchstartX - threshold) {
-                // Swiped left -> Next
+                // Swiped left → Next
                 const nextId = lb.dataset.nextId;
-                if (nextId) htmx.ajax('GET', '/photo/' + nextId, { target: '#modal-content', swap: 'innerHTML' });
+                if (nextId) {
+                    setSlideDirection('left');
+                    htmx.ajax('GET', '/photo/' + nextId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
+                }
             }
             if (touchendX > touchstartX + threshold) {
-                // Swiped right -> Previous
+                // Swiped right → Previous
                 const prevId = lb.dataset.prevId;
-                if (prevId) htmx.ajax('GET', '/photo/' + prevId, { target: '#modal-content', swap: 'innerHTML' });
+                if (prevId) {
+                    setSlideDirection('right');
+                    htmx.ajax('GET', '/photo/' + prevId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
+                }
             }
         }
 
@@ -121,27 +217,53 @@
             const lb = document.getElementById('lightbox-inner');
             if (!lb) return;
 
+            const sort = getCurrentSort();
+
             if (e.key === 'ArrowLeft') {
                 const prevId = lb.dataset.prevId;
-                if (prevId) htmx.ajax('GET', '/photo/' + prevId, { target: '#modal-content', swap: 'innerHTML' });
+                if (prevId) {
+                    setSlideDirection('right');
+                    htmx.ajax('GET', '/photo/' + prevId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
+                }
             } else if (e.key === 'ArrowRight') {
                 const nextId = lb.dataset.nextId;
-                if (nextId) htmx.ajax('GET', '/photo/' + nextId, { target: '#modal-content', swap: 'innerHTML' });
+                if (nextId) {
+                    setSlideDirection('left');
+                    htmx.ajax('GET', '/photo/' + nextId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
+                }
             }
         });
 
         document.body.addEventListener('photoDeleted', function (e) {
             closeModal();
-            // trigger search to reload grid
             htmx.trigger('#search-form', 'search');
         });
 
-        // Update photo count after HTMX loads grid
+        // After HTMX swaps modal content: apply slide animation + reset auto-hide timer
         document.addEventListener('htmx:afterSwap', function (e) {
+            // Photo count update
             const cards = document.querySelectorAll('.photo-card');
             const countEl = document.getElementById('photo-count');
             if (countEl && cards.length > 0) {
                 countEl.textContent = cards.length + ' photo' + (cards.length !== 1 ? 's' : '');
+            }
+
+            // Slide animation for lightbox transitions
+            if (e.target.id === 'modal-content' && slideDirection) {
+                const lb = document.getElementById('lightbox-inner');
+                if (lb) {
+                    const animClass = slideDirection === 'left' ? 'slide-in-from-right' : 'slide-in-from-left';
+                    lb.classList.add(animClass);
+                    lb.addEventListener('animationend', () => {
+                        lb.classList.remove(animClass);
+                    }, { once: true });
+                }
+                slideDirection = null;
+            }
+
+            // Reset auto-hide timer when new photo loads
+            if (e.target.id === 'modal-content') {
+                resetControlTimer();
             }
         });
     </script>

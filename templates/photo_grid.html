@@ -29,8 +29,8 @@
     </div>
 
     <!-- Time Scrubber -->
-    <div class="time-scrubber"
-        style="position: fixed; right: 1rem; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 100; background: rgba(0,0,0,0.4); padding: 10px 5px; border-radius: 20px; backdrop-filter: blur(8px);">
+    <div class="time-scrubber" id="time-scrubber"
+        style="position: fixed; right: 1rem; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 100; background: rgba(0,0,0,0.4); padding: 10px 5px; border-radius: 20px; backdrop-filter: blur(8px); transition: opacity 0.4s ease, visibility 0.4s ease;">
         {% for year in photos_by_year.keys() %}
         <a href="#year-{{ year }}" class="scrubber-link"
             style="color: var(--text-muted); font-size: 0.75rem; writing-mode: vertical-rl; text-orientation: mixed; transition: color 0.2s; text-decoration: none; display: block; text-align: center; font-weight: 500;">
@@ -46,6 +46,63 @@
         font-weight: 600;
     }
 </style>
+
+<script>
+    (function () {
+        const scrubber = document.getElementById('time-scrubber');
+        if (!scrubber) return;
+
+        let scrubberTimer = null;
+
+        function hideScrubber() {
+            scrubber.style.opacity = '0';
+            scrubber.style.pointerEvents = 'none';
+        }
+
+        function showScrubber() {
+            scrubber.style.opacity = '1';
+            scrubber.style.pointerEvents = 'auto';
+        }
+
+        function resetScrubberTimer() {
+            showScrubber();
+            clearTimeout(scrubberTimer);
+            scrubberTimer = setTimeout(hideScrubber, 3000);
+        }
+
+        // Start the initial auto-hide timer
+        resetScrubberTimer();
+
+        // Toggle on touch
+        let scrubberVisible = true;
+        document.addEventListener('touchstart', function (e) {
+            // Don't toggle if touching the scrubber itself or if modal is open
+            if (e.target.closest('.time-scrubber') || document.body.classList.contains('modal-open')) return;
+
+            if (scrubber.style.opacity === '0') {
+                scrubberVisible = true;
+                resetScrubberTimer();
+            } else {
+                scrubberVisible = false;
+                hideScrubber();
+                clearTimeout(scrubberTimer);
+            }
+        }, { passive: true });
+
+        // Show on mouse movement
+        document.addEventListener('mousemove', function (e) {
+            if (document.body.classList.contains('modal-open')) return;
+            resetScrubberTimer();
+        }, { passive: true });
+
+        // Also reset on scroll (user is browsing)
+        window.addEventListener('scroll', function () {
+            if (!document.body.classList.contains('modal-open')) {
+                resetScrubberTimer();
+            }
+        }, { passive: true });
+    })();
+</script>
 {% else %}
 <div class="empty-state">
     <p class="empty-icon">⬜</p>
