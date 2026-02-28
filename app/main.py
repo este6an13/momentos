@@ -24,6 +24,7 @@ STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local").lower()
 GCP_BUCKET_NAME = os.environ.get("GCP_BUCKET_NAME")
 CDN_DOMAIN = os.environ.get("CDN_DOMAIN")
 ADMIN_MODE = os.environ.get("ADMIN_MODE", "false").lower() == "true"
+WEBHOOK_TOKEN = os.environ.get("WEBHOOK_TOKEN")
 
 if STORAGE_BACKEND == "gcp" and not GCP_BUCKET_NAME:
     print("WARNING: STORAGE_BACKEND is gcp but GCP_BUCKET_NAME is not set.")
@@ -36,7 +37,7 @@ def get_gcp_bucket():
 
 from google.cloud import storage
 
-from .database import get_db, init_db
+from .database import get_db, init_db, engine
 from .models import Photo
 from .gcp_utils import upload_db_to_gcp, download_db_from_gcp
 
@@ -460,4 +461,43 @@ async def update_photo(
         "next_id": next_id,
         "current_sort": "desc",
     })
+
+
+@app.post("/api/internal/db-update")
+async def update_db_webhook(token: str):
+    """
+    Webhook endpoint to trigger downloading the latest photos.db from GCP.
+    Safely swaps the file by disposing the database connection pool first.
+    """
+    if not WEBHOOK_TOKEN or token != WEBHOOK_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid or missing webhook token")
+    if STORAGE_BACKEND != "gcp":
+        return {"message": "Ignored, not in GCP mode"}
+        
+    print("Received DB update webhook. Downloading new DB...")
+    
+    # Download to a temporary file first
+    success = download_db_from_gcp("photos.new.db")
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to download new DB")
+        
+    try:
+        # Dispose of any active connections to release file locks
+        engine.dispose()
+        
+        # Replace the old db with the new one
+        # os.replace is atomic on POSIX systems
+        if os.path.exists("photos.new.db"):
+            os.replace("photos.new.db", "photos.db")
+            print("Successfully swapped photos.db")
+        else:
+            raise Exception("Downloaded file not found")
+            
+        return {"message": "Successfully updated database"}
+    except Exception as e:
+        print(f"Error swapping DB: {e}")
+        # Clean up the temp file if it's still there
+        if os.path.exists("photos.new.db"):
+            os.remove("photos.new.db")
+        raise HTTPException(status_code=500, detail="Failed to swap DB file")
 

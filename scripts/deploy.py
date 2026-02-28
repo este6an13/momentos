@@ -27,6 +27,10 @@ def main():
         print("Error: GCP_BUCKET_NAME or GCP_DB_BUCKET_NAME not set in .env")
         sys.exit(1)
 
+    webhook_token = os.getenv("WEBHOOK_TOKEN")
+    if not webhook_token:
+        print("Warning: WEBHOOK_TOKEN not set in .env. Database syncing via webhook will be unsecured or broken.")
+
     print(f"--- Cloud Run Deployment (Python) ---")
     print(f"Project ID:   {project_id}")
     print(f"Service Name: {service_name}")
@@ -37,13 +41,17 @@ def main():
 
     # Construct the gcloud command
     # Using --set-env-vars to specify the backend and bucket names for production
+    env_vars = f"STORAGE_BACKEND=gcp,ADMIN_MODE=false,GCP_BUCKET_NAME={public_bucket},GCP_DB_BUCKET_NAME={private_bucket}"
+    if webhook_token:
+        env_vars += f",WEBHOOK_TOKEN={webhook_token}"
+
     cmd = [
         "gcloud", "run", "deploy", service_name,
         f"--project={project_id}",
         f"--region={region}",
         "--source=.",
         "--allow-unauthenticated",
-        f"--set-env-vars=STORAGE_BACKEND=gcp,ADMIN_MODE=false,GCP_BUCKET_NAME={public_bucket},GCP_DB_BUCKET_NAME={private_bucket}"
+        f"--set-env-vars={env_vars}"
     ]
 
     print("\nExecuting deployment...")
