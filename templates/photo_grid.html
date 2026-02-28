@@ -88,7 +88,8 @@
         }, { passive: true });
 
         // Show on mouse movement
-        document.addEventListener('mousemove', function (e) {
+        document.addEventListener('pointermove', function (e) {
+            if (e.pointerType !== 'mouse') return;
             if (document.body.classList.contains('modal-open')) return;
             resetScrubberTimer();
         }, { passive: true });

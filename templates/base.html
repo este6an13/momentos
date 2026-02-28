@@ -131,11 +131,18 @@
 
         // Toggle controls on tap/click on the lightbox image area
         document.getElementById('photo-modal').addEventListener('click', function (e) {
-            // Ignore clicks on buttons, meta panel, or admin actions
-            if (e.target.closest('.lightbox-arrow, .lightbox-close, .lightbox-meta, .admin-actions')) return;
+            // Ignore clicks on buttons or admin actions
+            if (e.target.closest('.lightbox-arrow, .lightbox-close, .admin-actions')) return;
 
             const controls = document.querySelector('.lightbox-controls');
             if (!controls) return;
+
+            // If clicking on the meta/details section, just show the controls (do not toggle off)
+            if (e.target.closest('.lightbox-meta')) {
+                controls.classList.remove('controls-hidden');
+                resetControlTimer();
+                return;
+            }
 
             if (controls.classList.contains('controls-hidden')) {
                 controls.classList.remove('controls-hidden');
@@ -147,7 +154,8 @@
         });
 
         // Show controls on mouse movement
-        document.getElementById('photo-modal').addEventListener('mousemove', function () {
+        document.getElementById('photo-modal').addEventListener('pointermove', function (e) {
+            if (e.pointerType !== 'mouse') return;
             const modal = document.getElementById('photo-modal');
             if (modal.classList.contains('active')) {
                 resetControlTimer();
