@@ -69,6 +69,13 @@
     <script>
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
+        /* ── Random Tagline ── */
+        const taglines = ["moments, collected.", "momentos, guardados."];
+        const chosenTagline = taglines[Math.floor(Math.random() * taglines.length)];
+        document.querySelectorAll('.footer-tagline, .gallery-tagline').forEach(el => {
+            el.textContent = chosenTagline;
+        });
+
         /* ── Shuffle ── */
         function toggleShuffle() {
             const btn = document.getElementById('shuffle-btn');
