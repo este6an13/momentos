@@ -97,7 +97,7 @@ def scan_photos_folder(db: Session):
         if filename not in db_photos:
             photo = Photo(
                 filename=filename,
-                title=_filename_to_title(filename),
+                title="",
                 uploaded_at=datetime.utcnow(),
             )
             db.add(photo)
@@ -338,7 +338,7 @@ async def handle_upload(
         )
         db.add(photo)
     
-    photo.title = title or _filename_to_title(file.filename)
+    photo.title = title
     photo.description = description
     photo.location = location
     photo.taken_at = parsed_taken_at

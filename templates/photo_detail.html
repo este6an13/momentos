@@ -18,11 +18,11 @@
     </div>
 
     <div class="lightbox-image">
-        <img src="{{ get_image_url(photo.filename) }}" alt="{{ photo.title or photo.filename }}">
+        <img src="{{ get_image_url(photo.filename) }}" alt="{{ photo.title }}">
     </div>
 
     <div class="lightbox-meta">
-        <h2 class="meta-title">{{ photo.title or 'Untitled' }}</h2>
+        <h2 class="meta-title">{{ photo.title }}</h2>
 
         {% if photo.description %}
         <p class="meta-description">{{ photo.description }}</p>
