@@ -4,6 +4,11 @@
 <div class="gallery-wrapper">
     <div class="gallery-hero">
         <p class="gallery-tagline">moments, collected.</p>
+        <div id="active-tag-indicator" class="active-tag-chip" style="display: none;">
+            <span id="active-tag-text"></span>
+            <button type="button" onclick="clearTagFilter()" class="clear-tag-btn"
+                title="Clear Tag Filter">&times;</button>
+        </div>
     </div>
 
     <div id="photo-grid"

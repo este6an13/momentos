@@ -38,11 +38,6 @@
                             oninput="if(this.value) clearTagFilter(false)">
 
                         <input type="hidden" id="tag-input" name="tag" value="">
-                        <div id="active-tag-indicator" class="active-tag-chip" style="display: none;">
-                            <span id="active-tag-text"></span>
-                            <button type="button" onclick="clearTagFilter()" class="clear-tag-btn"
-                                title="Clear Tag Filter">&times;</button>
-                        </div>
                     </div>
 
                     <label class="nav-btn-circle" title="Toggle Timeline Sort">
@@ -148,7 +143,13 @@
             const indicator = document.getElementById('active-tag-indicator');
             const text = document.getElementById('active-tag-text');
 
-            if (!tagInput || !indicator || !text) return;
+            if (!tagInput) {
+                // If not on a page with the indicator (e.g. About), redirect to home with tag
+                window.location.href = '/?tag=' + encodeURIComponent(tagName);
+                return;
+            }
+
+            if (!indicator || !text) return;
 
             // Clear text search when applying tag
             if (searchInput) searchInput.value = '';
@@ -166,6 +167,7 @@
                 const url = new URL(window.location);
                 url.searchParams.set('tag', tagName);
                 url.searchParams.delete('q');
+                url.searchParams.delete('p'); // Remove photo ID when filtering by tag
                 window.history.pushState({ tag: tagName }, '', url);
             }
         }
@@ -185,6 +187,7 @@
                 htmx.trigger('#search-form', 'search');
                 const url = new URL(window.location);
                 url.searchParams.delete('tag');
+                url.searchParams.delete('p'); // Remove photo ID when clearing tag
                 window.history.pushState({ tag: null }, '', url);
             }
         }
