@@ -148,7 +148,7 @@ async def about(request: Request):
 
 @app.get("/photos", response_class=HTMLResponse)
 async def get_photos(request: Request, q: Optional[str] = None, sort: str = "desc", db: Session = Depends(get_db)):
-    """HTMX endpoint for photo grid — always syncs folder first"""
+    """HTMX endpoint for photo grid - always syncs folder first"""
     scan_photos_folder(db)
     
     query = db.query(Photo)
