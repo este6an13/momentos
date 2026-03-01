@@ -6,11 +6,14 @@
         <p class="gallery-tagline">moments, collected.</p>
     </div>
 
-    <div id="photo-grid" hx-get="/photos" hx-trigger="load" hx-swap="innerHTML">
+    <div id="photo-grid"
+        hx-get="/photos{% if initial_tag %}?tag={{ initial_tag }}{% elif initial_q %}?q={{ initial_q }}{% endif %}"
+        hx-trigger="load">
+        <!-- Initial loading state -->
         <div class="loading-state">
-            <span class="loading-dot"></span>
-            <span class="loading-dot"></span>
-            <span class="loading-dot"></span>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
         </div>
     </div>
 </div>
@@ -18,16 +21,18 @@
 <script>
     (function () {
         const initialTag = "{{ initial_tag or '' }}";
+        const initialQ = "{{ initial_q or '' }}";
         const initialPhotoId = "{{ initial_photo_id or '' }}";
 
         const triggerInitialLoad = () => {
-            if (typeof htmx !== 'undefined') {
+            if (typeof htmx !== 'undefined' && typeof setTagFilter === 'function') {
                 if (initialTag) {
+                    // Update UI only, as photo-grid already requested filtered content
+                    setTagFilter(initialTag, false, false);
+                } else if (initialQ) {
+                    // Populate search input only
                     const searchInput = document.querySelector('.search-input');
-                    if (searchInput) {
-                        searchInput.value = initialTag;
-                        htmx.trigger('#search-form', 'search');
-                    }
+                    if (searchInput) searchInput.value = initialQ;
                 }
 
                 if (initialPhotoId) {

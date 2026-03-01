@@ -25,7 +25,7 @@
             <nav class="site-nav" style="display: flex; align-items: center; gap: 1rem;">
                 {% block header_controls %}
                 <form id="search-form" hx-get="/photos" hx-target="#photo-grid"
-                    hx-trigger="input from:.search-input delay:400ms, change from:.sort-input, search"
+                    hx-trigger="input from:.search-input delay:400ms, change from:.sort-input, search, change from:#tag-input"
                     class="search-form">
 
                     <div class="search-container">
@@ -34,7 +34,15 @@
                             <span class="material-symbols-outlined">search</span>
                         </button>
                         <input type="search" class="search-input" name="q" placeholder="Search photos..."
-                            onkeydown="if(event.key==='Enter') event.preventDefault();">
+                            onkeydown="if(event.key==='Enter') event.preventDefault();"
+                            oninput="if(this.value) clearTagFilter(false)">
+
+                        <input type="hidden" id="tag-input" name="tag" value="">
+                        <div id="active-tag-indicator" class="active-tag-chip" style="display: none;">
+                            <span id="active-tag-text"></span>
+                            <button type="button" onclick="clearTagFilter()" class="clear-tag-btn"
+                                title="Clear Tag Filter">&times;</button>
+                        </div>
                     </div>
 
                     <label class="nav-btn-circle" title="Toggle Timeline Sort">
@@ -130,6 +138,57 @@
         }
 
         /* ── Modal ── */
+        function startup_event() {
+            // Initial setup handled by inlined script in index.html or here
+        }
+
+        function setTagFilter(tagName, updateHistory = true, triggerSearch = true) {
+            const tagInput = document.getElementById('tag-input');
+            const searchInput = document.querySelector('.search-input');
+            const indicator = document.getElementById('active-tag-indicator');
+            const text = document.getElementById('active-tag-text');
+
+            if (!tagInput || !indicator || !text) return;
+
+            // Clear text search when applying tag
+            if (searchInput) searchInput.value = '';
+
+            tagInput.value = tagName;
+            text.textContent = tagName;
+            indicator.style.display = 'inline-flex';
+
+            if (triggerSearch) {
+                // Trigger HTMX
+                htmx.trigger('#search-form', 'search');
+            }
+
+            if (updateHistory) {
+                const url = new URL(window.location);
+                url.searchParams.set('tag', tagName);
+                url.searchParams.delete('q');
+                window.history.pushState({ tag: tagName }, '', url);
+            }
+        }
+
+        function clearTagFilter(triggerSearch = true) {
+            const tagInput = document.getElementById('tag-input');
+            const indicator = document.getElementById('active-tag-indicator');
+
+            if (!tagInput || !indicator) return;
+
+            if (tagInput.value === '') return; // Already clear
+
+            tagInput.value = '';
+            indicator.style.display = 'none';
+
+            if (triggerSearch) {
+                htmx.trigger('#search-form', 'search');
+                const url = new URL(window.location);
+                url.searchParams.delete('tag');
+                window.history.pushState({ tag: null }, '', url);
+            }
+        }
+
         function closeModal() {
             const modal = document.getElementById('photo-modal');
             modal.classList.remove('active');
@@ -169,6 +228,7 @@
             const url = new URL(window.location);
             const slug = url.searchParams.get('p');
             const tag = url.searchParams.get('tag');
+            const q = url.searchParams.get('q');
 
             if (slug) {
                 // If the modal should be open for this slug
@@ -189,10 +249,25 @@
                 }
             }
 
-            // Also handle tag changes in URL
+            // Handle tag changes in URL
+            if (tag) {
+                setTagFilter(tag, false, true);
+            } else {
+                clearTagFilter(true);
+            }
+
+            // Handle search query changes
             const searchInput = document.querySelector('.search-input');
-            if (searchInput && searchInput.value !== (tag || '')) {
-                searchInput.value = tag || '';
+            if (searchInput && searchInput.value !== (q || '')) {
+                searchInput.value = q || '';
+                // If we have a query, it should have already cleared the tag in the flow, 
+                // but for back navigation we ensure consistency.
+                if (q) {
+                    const tagInput = document.getElementById('tag-input');
+                    const indicator = document.getElementById('active-tag-indicator');
+                    if (tagInput) tagInput.value = '';
+                    if (indicator) indicator.style.display = 'none';
+                }
                 htmx.trigger('#search-form', 'search');
             }
         };

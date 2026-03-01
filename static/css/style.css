@@ -673,6 +673,39 @@ a {
     opacity: 0.7;
 }
 
+/* ── Active Tag Filter Chip ── */
+.active-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--bg-3);
+    border: 1px solid var(--text-accent);
+    padding: 0.35rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--text-accent);
+    margin-right: 0.5rem;
+    animation: fadeIn 0.2s ease;
+}
+
+.clear-tag-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition);
+}
+
+.clear-tag-btn:hover {
+    color: var(--text-primary);
+}
+
 /* ── Tag Input Chips ── */
 .tag-input-container {
     display: flex;

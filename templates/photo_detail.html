@@ -53,8 +53,9 @@
                 <div class="meta-tags">
                     {% for tag in photo.get_tags() %}
                     <a href="/?tag={{ tag }}" class="tag"
-                        onclick="event.preventDefault(); document.querySelector('.search-input').value = '{{ tag }}'; htmx.trigger('#search-form', 'search'); closeModal();"
-                        title="Search for '{{ tag }}'">{{ tag }}</a>
+                        onclick="event.preventDefault(); setTagFilter('{{ tag }}'); closeModal();">
+                        {{ tag }}
+                    </a>
                     {% endfor %}
                 </div>
             </div>
