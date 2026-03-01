@@ -638,6 +638,47 @@ a {
     outline: none;
 }
 
+/* ── About Page ── */
+.about-container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 6rem 1.5rem 4rem;
+}
+
+.about-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-weight: 400;
+}
+
+.about-content p {
+    margin-bottom: 1.5rem;
+}
+
+.about-toggle-wrapper {
+    margin-bottom: 3rem;
+    text-align: right;
+}
+
+.lang-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: var(--font-sans);
+}
+
+.lang-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-accent);
+}
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
     .masonry-grid {

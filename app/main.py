@@ -140,6 +140,11 @@ async def index(request: Request):
     """Main gallery page"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/about", response_class=HTMLResponse)
+async def about(request: Request):
+    """About page"""
+    return templates.TemplateResponse("about.html", {"request": request})
+
 
 @app.get("/photos", response_class=HTMLResponse)
 async def get_photos(request: Request, q: Optional[str] = None, sort: str = "desc", db: Session = Depends(get_db)):

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}About — Momentos{% endblock %}
+
+{% block header_controls %}{% endblock %}
+
+{% block content %}
+<div class="about-container">
+    <div class="about-toggle-wrapper">
+        <button id="lang-toggle-btn" class="lang-btn" onclick="toggleLanguage()">Read in Spanish</button>
+    </div>
+
+    <div id="about-content-en" class="about-content active">
+        <p>This gallery is a personal project, a place to share photos I like.</p>
+
+        <p>I wanted a feed I can adjust over time: editing details, changing descriptions, and reordering images.
+            Visitors can view the photos chronologically or at random, and search the gallery using keywords, making it
+            easier to explore the collection at their own pace; things that aren’t possible on platforms like Instagram,
+            or VSCO.</p>
+
+        <p>I also wanted to post without bothering people or occupying their feeds. This is a place meant to be visited
+            intentionally. There’s no algorithm deciding what should be seen, no pressure to post regularly, and no need
+            to compete for attention.</p>
+
+        <p>Just a quiet, personal collection, open to anyone who chooses to look.</p>
+    </div>
+
+    <div id="about-content-es" class="about-content" style="display: none;">
+        <p>Esta galería es un proyecto personal, un espacio para compartir fotos que me gustan.</p>
+
+        <p>Quería un feed que pudiera ajustar con el tiempo: editar detalles, cambiar descripciones y reordenar
+            imágenes.
+            Las fotos pueden verse de forma cronológica o aleatoria, y explorarse mediante palabras clave, lo que
+            facilita
+            recorrer la colección a tu propio ritmo; cosas que no son posibles en plataformas como Instagram o VSCO.</p>
+
+        <p>También quería poder publicar sin molestar a nadie ni ocupar sus feeds. Este es un lugar pensado para
+            visitarse
+            de forma intencional. No hay un algoritmo decidiendo qué mostrar, ni presión por publicar con frecuencia,
+            ni necesidad de competir por atención.</p>
+
+        <p>Solo una colección personal y tranquila, abierta a quien quiera detenerse a mirar.</p>
+    </div>
+</div>
+
+<script>
+    function toggleLanguage() {
+        const enContent = document.getElementById('about-content-en');
+        const esContent = document.getElementById('about-content-es');
+        const btn = document.getElementById('lang-toggle-btn');
+
+        if (enContent.style.display !== 'none') {
+            enContent.style.display = 'none';
+            esContent.style.display = 'block';
+            btn.textContent = 'Read in English';
+        } else {
+            enContent.style.display = 'block';
+            esContent.style.display = 'none';
+            btn.textContent = 'Read in Spanish';
+        }
+    }
+</script>
+{% endblock %}
