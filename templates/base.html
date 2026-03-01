@@ -193,13 +193,6 @@
             const modal = document.getElementById('photo-modal');
             modal.classList.remove('active');
             document.body.classList.remove('modal-open');
-            isZoomMode = false;
-            clearControlTimer();
-
-            // Update URL
-            const url = new URL(window.location);
-            url.searchParams.delete('p');
-            window.history.pushState({ modalOpen: false }, '', url);
         }
 
         function openModal() {
@@ -241,12 +234,9 @@
             } else {
                 // Otherwise close the modal if it's open
                 const modal = document.getElementById('photo-modal');
-                if (modal.classList.contains('active')) {
-                    modal.classList.remove('active');
-                    document.body.classList.remove('modal-open');
-                    isZoomMode = false;
-                    clearControlTimer();
-                }
+                modal.classList.remove('active');
+                document.body.classList.remove('modal-open');
+                clearControlTimer();
             }
 
             // Handle tag changes in URL
@@ -332,36 +322,12 @@
         let touchstartY = 0;
         let touchendX = 0;
         let touchendY = 0;
-        let isZoomMode = false;
-
         function getCurrentSort() {
             const lb = document.getElementById('lightbox-inner');
             return lb ? (lb.dataset.sort || 'desc') : 'desc';
         }
 
-        function toggleZoom() {
-            const lb = document.getElementById('lightbox-inner');
-            const btn = document.getElementById('zoom-toggle-btn');
-            if (!lb || !btn) return;
-
-            isZoomMode = !isZoomMode;
-            lb.classList.toggle('lightbox--zoomed', isZoomMode);
-            btn.classList.toggle('active', isZoomMode);
-
-            const icon = btn.querySelector('.material-symbols-outlined');
-            if (icon) {
-                icon.innerText = isZoomMode ? 'zoom_out' : 'zoom_in';
-            }
-
-            if (isZoomMode) {
-                btn.title = 'Disable Zoom';
-            } else {
-                btn.title = 'Enable Zoom';
-            }
-        }
-
         function handleGesture() {
-            if (isZoomMode) return;
 
             const modal = document.getElementById('photo-modal');
             if (!modal.classList.contains('active')) return;
@@ -465,12 +431,6 @@
 
                 // Update URL for the current photo (handles both open and transition)
                 updatePhotoUrl();
-
-                // Ensure Zoom Mode state is reflected in UI if it was active
-                const lb = document.getElementById('lightbox-inner');
-                if (lb && isZoomMode) {
-                    lb.classList.add('lightbox--zoomed');
-                }
             }
         });
     </script>

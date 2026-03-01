@@ -508,62 +508,7 @@ a {
     background-color: var(--bg-2);
 }
 
-/* Zoom Toggle */
-.lightbox-zoom-toggle {
-    position: fixed;
-    top: 1.25rem;
-    right: 4.5rem;
-    z-index: 1100;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition);
-    backdrop-filter: blur(8px);
-}
 
-.lightbox-zoom-toggle:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--text-primary);
-}
-
-.lightbox-zoom-toggle.active {
-    background: rgba(200, 184, 154, 0.2);
-    color: var(--text-accent);
-    border-color: var(--text-accent);
-}
-
-.lightbox-zoom-toggle .material-symbols-outlined {
-    font-size: 1.25rem;
-}
-
-/* Zoomed State */
-.lightbox--zoomed .lightbox-image img {
-    max-height: none;
-    max-width: none;
-    width: 150%;
-}
-
-.lightbox--zoomed .lightbox-image {
-    overflow: auto;
-    padding: 2rem;
-    cursor: grab;
-}
-
-.lightbox--zoomed .lightbox-image:active {
-    cursor: grabbing;
-}
-
-.lightbox--zoomed .lightbox-arrow {
-    opacity: 0.2;
-    pointer-events: none;
-}
 
 .meta-title {
     font-family: var(--font-serif);
