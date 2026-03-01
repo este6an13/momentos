@@ -1,5 +1,5 @@
-<div class="lightbox" id="lightbox-inner" data-photo-id="{{ photo.id }}" data-prev-id="{{ prev_id or '' }}"
-    data-next-id="{{ next_id or '' }}" data-sort="{{ current_sort or 'desc' }}">
+<div class="lightbox" id="lightbox-inner" data-photo-id="{{ photo.id }}" data-filename="{{ photo.filename }}"
+    data-prev-id="{{ prev_id or '' }}" data-next-id="{{ next_id or '' }}" data-sort="{{ current_sort or 'desc' }}">
 
     <div class="lightbox-controls">
         <button class="lightbox-close" onclick="closeModal()" aria-label="Close">&#10005;</button>
@@ -52,7 +52,9 @@
                 <span class="meta-label">Tags</span>
                 <div class="meta-tags">
                     {% for tag in photo.get_tags() %}
-                    <span class="tag">{{ tag }}</span>
+                    <a href="/?tag={{ tag }}" class="tag"
+                        onclick="event.preventDefault(); document.querySelector('.search-input').value = '{{ tag }}'; htmx.trigger('#search-form', 'search'); closeModal();"
+                        title="Search for '{{ tag }}'">{{ tag }}</a>
                     {% endfor %}
                 </div>
             </div>

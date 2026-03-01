@@ -33,7 +33,8 @@
                             title="Search Photos" onclick="toggleMobileSearch()">
                             <span class="material-symbols-outlined">search</span>
                         </button>
-                        <input type="search" class="search-input" name="q" placeholder="Search photos...">
+                        <input type="search" class="search-input" name="q" placeholder="Search photos..."
+                            onkeydown="if(event.key==='Enter') event.preventDefault();">
                     </div>
 
                     <label class="nav-btn-circle" title="Toggle Timeline Sort">
@@ -135,6 +136,11 @@
             document.body.classList.remove('modal-open');
             isZoomMode = false;
             clearControlTimer();
+
+            // Update URL
+            const url = new URL(window.location);
+            url.searchParams.delete('p');
+            window.history.pushState({ modalOpen: false }, '', url);
         }
 
         function openModal() {
@@ -142,7 +148,54 @@
             modal.classList.add('active');
             document.body.classList.add('modal-open');
             resetControlTimer();
+            // URL update is handled by htmx:afterSwap for consistency
         }
+
+        function updatePhotoUrl() {
+            const lb = document.getElementById('lightbox-inner');
+            if (lb) {
+                const photoFilename = lb.dataset.filename || '';
+                const photoId = lb.dataset.photoId;
+                const identifier = photoFilename || photoId;
+                const url = new URL(window.location);
+                if (identifier && url.searchParams.get('p') !== identifier) {
+                    url.searchParams.set('p', identifier);
+                    window.history.pushState({ modalOpen: true, photoId: identifier }, '', url);
+                }
+            }
+        }
+
+        window.onpopstate = function (event) {
+            const url = new URL(window.location);
+            const slug = url.searchParams.get('p');
+            const tag = url.searchParams.get('tag');
+
+            if (slug) {
+                // If the modal should be open for this slug
+                const modal = document.getElementById('photo-modal');
+                const lb = document.getElementById('lightbox-inner');
+                // Only trigger if the photo currently shown is different
+                if (!modal.classList.contains('active') || (lb && lb.dataset.filename !== slug)) {
+                    htmx.ajax('GET', '/photo/' + slug, { target: '#modal-content', swap: 'innerHTML' });
+                }
+            } else {
+                // Otherwise close the modal if it's open
+                const modal = document.getElementById('photo-modal');
+                if (modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                    document.body.classList.remove('modal-open');
+                    isZoomMode = false;
+                    clearControlTimer();
+                }
+            }
+
+            // Also handle tag changes in URL
+            const searchInput = document.querySelector('.search-input');
+            if (searchInput && searchInput.value !== (tag || '')) {
+                searchInput.value = tag || '';
+                htmx.trigger('#search-form', 'search');
+            }
+        };
 
         /* ── Auto-hide lightbox controls ── */
         let controlTimer = null;
@@ -328,6 +381,16 @@
             // Reset auto-hide timer when new photo loads
             if (e.target.id === 'modal-content') {
                 resetControlTimer();
+                // Ensure the modal is VISUALLY open (e.g. on direct access)
+                const modal = document.getElementById('photo-modal');
+                if (!modal.classList.contains('active')) {
+                    modal.classList.add('active');
+                    document.body.classList.add('modal-open');
+                }
+
+                // Update URL for the current photo (handles both open and transition)
+                updatePhotoUrl();
+
                 // Ensure Zoom Mode state is reflected in UI if it was active
                 const lb = document.getElementById('lightbox-inner');
                 if (lb && isZoomMode) {

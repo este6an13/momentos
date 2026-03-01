@@ -14,4 +14,36 @@
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        const initialTag = "{{ initial_tag or '' }}";
+        const initialPhotoId = "{{ initial_photo_id or '' }}";
+
+        const triggerInitialLoad = () => {
+            if (typeof htmx !== 'undefined') {
+                if (initialTag) {
+                    const searchInput = document.querySelector('.search-input');
+                    if (searchInput) {
+                        searchInput.value = initialTag;
+                        htmx.trigger('#search-form', 'search');
+                    }
+                }
+
+                if (initialPhotoId) {
+                    // Trigger opening the photo modal
+                    htmx.ajax('GET', '/photo/' + initialPhotoId, { target: '#modal-content', swap: 'innerHTML' });
+                }
+            } else {
+                setTimeout(triggerInitialLoad, 50);
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', triggerInitialLoad);
+        } else {
+            triggerInitialLoad();
+        }
+    })();
+</script>
 {% endblock %}

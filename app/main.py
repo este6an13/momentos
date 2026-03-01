@@ -136,9 +136,13 @@ async def startup_event():
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = None):
     """Main gallery page"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "initial_tag": tag,
+        "initial_photo_id": p
+    })
 
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
@@ -193,12 +197,26 @@ async def get_photos(request: Request, q: Optional[str] = None, sort: str = "des
     })
 
 
-@app.get("/photo/{photo_id}", response_class=HTMLResponse)
-async def get_photo_detail(photo_id: int, request: Request, sort: str = "desc", db: Session = Depends(get_db)):
-    """HTMX endpoint for photo details with prev/next navigation"""
-    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+@app.get("/photo/{photo_id_or_slug}", response_class=HTMLResponse)
+async def get_photo_detail(photo_id_or_slug: str, request: Request, sort: str = "desc", db: Session = Depends(get_db)):
+    """HTMX endpoint for photo details with prev/next navigation. Supports numeric ID or filename stem."""
+    photo = None
+    if photo_id_or_slug.isdigit():
+        photo = db.query(Photo).filter(Photo.id == int(photo_id_or_slug)).first()
+    
+    if not photo:
+        # 1. Try exact filename match (e.g., 'UUID.jpg')
+        photo = db.query(Photo).filter(Photo.filename == photo_id_or_slug).first()
+    
+    if not photo:
+        # 2. Try finding by filename stem (e.g., 'my-image' for 'my-image.jpg')
+        search_pattern = f"{photo_id_or_slug}.%"
+        photo = db.query(Photo).filter(Photo.filename.like(search_pattern)).first()
+
     if not photo:
         return HTMLResponse(content="Photo not found", status_code=404)
+
+    photo_id = photo.id
 
     # Use same ordering as the grid: coalesce(taken_at, uploaded_at)
     sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
