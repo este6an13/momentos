@@ -133,6 +133,7 @@
             const modal = document.getElementById('photo-modal');
             modal.classList.remove('active');
             document.body.classList.remove('modal-open');
+            isZoomMode = false;
             clearControlTimer();
         }
 
@@ -200,30 +201,62 @@
 
         /* ── Swipe support ── */
         let touchstartX = 0;
+        let touchstartY = 0;
         let touchendX = 0;
+        let touchendY = 0;
+        let isZoomMode = false;
 
         function getCurrentSort() {
             const lb = document.getElementById('lightbox-inner');
             return lb ? (lb.dataset.sort || 'desc') : 'desc';
         }
 
+        function toggleZoom() {
+            const lb = document.getElementById('lightbox-inner');
+            const btn = document.getElementById('zoom-toggle-btn');
+            if (!lb || !btn) return;
+
+            isZoomMode = !isZoomMode;
+            lb.classList.toggle('lightbox--zoomed', isZoomMode);
+            btn.classList.toggle('active', isZoomMode);
+
+            const icon = btn.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.innerText = isZoomMode ? 'zoom_out' : 'zoom_in';
+            }
+
+            if (isZoomMode) {
+                btn.title = 'Disable Zoom';
+            } else {
+                btn.title = 'Enable Zoom';
+            }
+        }
+
         function handleGesture() {
+            if (isZoomMode) return;
+
             const modal = document.getElementById('photo-modal');
             if (!modal.classList.contains('active')) return;
 
             const lb = document.getElementById('lightbox-inner');
             if (!lb) return;
 
+            const deltaX = touchendX - touchstartX;
+            const deltaY = touchendY - touchstartY;
+            const threshold = 60;
+            const ratio = 2.0;
+
+            // Ignore if vertical movement is significant (scrolling details)
+            if (Math.abs(deltaY) * ratio > Math.abs(deltaX)) return;
+
             const sort = getCurrentSort();
-            const threshold = 50;
-            if (touchendX < touchstartX - threshold) {
+            if (deltaX < -threshold) {
                 // Swiped left → Next
                 const nextId = lb.dataset.nextId;
                 if (nextId) {
                     htmx.ajax('GET', '/photo/' + nextId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
                 }
-            }
-            if (touchendX > touchstartX + threshold) {
+            } else if (deltaX > threshold) {
                 // Swiped right → Previous
                 const prevId = lb.dataset.prevId;
                 if (prevId) {
@@ -233,11 +266,21 @@
         }
 
         document.getElementById('photo-modal').addEventListener('touchstart', e => {
+            // Ignore multi-touch (pinching/zooming)
+            if (e.touches.length > 1) {
+                touchstartX = 0;
+                touchstartY = 0;
+                return;
+            }
             touchstartX = e.changedTouches[0].screenX;
+            touchstartY = e.changedTouches[0].screenY;
         }, { passive: true });
 
         document.getElementById('photo-modal').addEventListener('touchend', e => {
+            if (e.touches.length > 0) return; // Still some fingers down
             touchendX = e.changedTouches[0].screenX;
+            touchendY = e.changedTouches[0].screenY;
+            if (touchstartX === 0) return; // Was multi-touch
             handleGesture();
         }, { passive: true });
 
@@ -285,6 +328,11 @@
             // Reset auto-hide timer when new photo loads
             if (e.target.id === 'modal-content') {
                 resetControlTimer();
+                // Ensure Zoom Mode state is reflected in UI if it was active
+                const lb = document.getElementById('lightbox-inner');
+                if (lb && isZoomMode) {
+                    lb.classList.add('lightbox--zoomed');
+                }
             }
         });
     </script>

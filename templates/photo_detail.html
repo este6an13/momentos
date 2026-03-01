@@ -4,6 +4,10 @@
     <div class="lightbox-controls">
         <button class="lightbox-close" onclick="closeModal()" aria-label="Close">&#10005;</button>
 
+        <button id="zoom-toggle-btn" class="lightbox-zoom-toggle" onclick="toggleZoom()" title="Enable Zoom">
+            <span class="material-symbols-outlined">zoom_in</span>
+        </button>
+
         {% if prev_id %}
         <button class="lightbox-arrow lightbox-arrow--prev"
             hx-get="/photo/{{ prev_id }}?sort={{ current_sort or 'desc' }}" hx-target="#modal-content"
