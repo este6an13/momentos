@@ -136,13 +136,30 @@ async def startup_event():
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = None, q: Optional[str] = None):
-    """Main gallery page"""
+async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = None, q: Optional[str] = None, db: Session = Depends(get_db)):
+    """Main gallery page — serves all photo metadata as embedded JSON"""
+    scan_photos_folder(db)
+    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+    photos = db.query(Photo).order_by(sort_column.desc()).all()
+
+    photos_json = json.dumps([{
+        "id": photo.id,
+        "filename": photo.filename,
+        "title": photo.title or "",
+        "description": photo.description or "",
+        "location": photo.location or "",
+        "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
+        "uploaded_at": photo.uploaded_at.isoformat() if photo.uploaded_at else None,
+        "tags": photo.get_tags(),
+        "image_url": get_image_url(photo.filename),
+    } for photo in photos])
+
     return templates.TemplateResponse("index.html", {
         "request": request,
         "initial_tag": tag,
         "initial_photo_id": p,
-        "initial_q": q
+        "initial_q": q,
+        "photos_json": photos_json,
     })
 
 @app.get("/about", response_class=HTMLResponse)

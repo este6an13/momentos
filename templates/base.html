@@ -24,26 +24,23 @@
             <a href="/" class="site-logo">&#9632; gallery</a>
             <nav class="site-nav" style="display: flex; align-items: center; gap: 1rem;">
                 {% block header_controls %}
-                <form id="search-form" hx-get="/photos" hx-target="#photo-grid"
-                    hx-trigger="input from:.search-input delay:400ms, change from:.sort-input, search, change from:#tag-input"
-                    class="search-form">
+                <div id="search-form" class="search-form">
 
                     <div class="search-container">
                         <button type="button" id="search-toggle" class="nav-btn-circle nav-icon-btn mobile-only"
                             title="Search Photos" onclick="toggleMobileSearch()">
                             <span class="material-symbols-outlined">search</span>
                         </button>
-                        <input type="search" class="search-input" name="q" placeholder="Search photos..."
+                        <input type="search" class="search-input" placeholder="Search photos..."
                             onkeydown="if(event.key==='Enter') event.preventDefault();"
-                            oninput="if(this.value) clearTagFilter(false)">
+                            oninput="handleSearchInput(this.value)">
 
-                        <input type="hidden" id="tag-input" name="tag" value="">
+                        <input type="hidden" id="tag-input" value="">
                     </div>
 
                     <label class="nav-btn-circle" title="Toggle Timeline Sort">
                         <input type="checkbox" class="sort-input" style="display: none;"
-                            onchange="document.getElementById('sort-hidden').value = this.checked ? 'asc' : 'desc'; document.getElementById('sort-icon').innerText = this.checked ? '↑' : '↓'; deactivateShuffle()">
-                        <input type="hidden" id="sort-hidden" name="sort" value="desc">
+                            onchange="handleSortToggle(this.checked)">
                         <span id="sort-icon"
                             style="font-size: 1.1rem; line-height: 1; color: var(--text-secondary);">↓</span>
                     </label>
@@ -52,7 +49,7 @@
                         onclick="toggleShuffle()">
                         <span class="material-symbols-outlined">shuffle</span>
                     </button>
-                </form>
+                </div>
                 <span class="nav-count" id="photo-count"></span>
                 {% endblock %}
                 <a href="/about"
@@ -107,119 +104,83 @@
             el.textContent = chosenTagline;
         });
 
-        /* ── Shuffle ── */
-        function toggleShuffle() {
-            const btn = document.getElementById('shuffle-btn');
-            const sortHidden = document.getElementById('sort-hidden');
-            if (sortHidden.value === 'shuffle') {
-                deactivateShuffle();
-            } else {
-                sortHidden.value = 'shuffle';
-                btn.classList.add('active');
-                btn.title = 'Disable Shuffle';
-            }
-            htmx.trigger('#search-form', 'search');
+        /* ── Search Handler (debounced) ── */
+        let searchTimer = null;
+        function handleSearchInput(value) {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                if (typeof Gallery !== 'undefined') {
+                    Gallery.search(value);
+                }
+            }, 300);
         }
 
-        function deactivateShuffle() {
-            const btn = document.getElementById('shuffle-btn');
-            const sortHidden = document.getElementById('sort-hidden');
-            const chk = document.querySelector('.sort-input');
-            btn.classList.remove('active');
-            btn.title = 'Shuffle Photos';
-            if (sortHidden.value === 'shuffle') {
-                sortHidden.value = chk && chk.checked ? 'asc' : 'desc';
+        /* ── Sort Toggle Handler ── */
+        function handleSortToggle(checked) {
+            const sortIcon = document.getElementById('sort-icon');
+            sortIcon.innerText = checked ? '↑' : '↓';
+            deactivateShuffleUI();
+            const mode = checked ? 'asc' : 'desc';
+            if (typeof Gallery !== 'undefined') {
+                Gallery.sort(mode);
             }
+        }
+
+        /* ── Shuffle ── */
+        let shuffleActive = false;
+        function toggleShuffle() {
+            const btn = document.getElementById('shuffle-btn');
+            if (shuffleActive) {
+                deactivateShuffleUI();
+                const chk = document.querySelector('.sort-input');
+                const mode = chk && chk.checked ? 'asc' : 'desc';
+                if (typeof Gallery !== 'undefined') Gallery.sort(mode);
+            } else {
+                shuffleActive = true;
+                btn.classList.add('active');
+                btn.title = 'Disable Shuffle';
+                if (typeof Gallery !== 'undefined') Gallery.sort('shuffle');
+            }
+        }
+
+        function deactivateShuffleUI() {
+            const btn = document.getElementById('shuffle-btn');
+            if (btn) {
+                btn.classList.remove('active');
+                btn.title = 'Shuffle Photos';
+            }
+            shuffleActive = false;
         }
 
         /* ── Modal ── */
-        function startup_event() {
-            // Initial setup handled by inlined script in index.html or here
-        }
-
-        function setTagFilter(tagName, updateHistory = true, triggerSearch = true) {
-            const tagInput = document.getElementById('tag-input');
-            const searchInput = document.querySelector('.search-input');
-            const indicator = document.getElementById('active-tag-indicator');
-            const text = document.getElementById('active-tag-text');
-
-            if (!tagInput) {
-                // If not on a page with the indicator (e.g. About), redirect to home with tag
-                window.location.href = '/?tag=' + encodeURIComponent(tagName);
-                return;
-            }
-
-            if (!indicator || !text) return;
-
-            // Clear text search when applying tag
-            if (searchInput) searchInput.value = '';
-
-            tagInput.value = tagName;
-            text.textContent = tagName;
-            indicator.style.display = 'inline-flex';
-
-            if (triggerSearch) {
-                // Trigger HTMX
-                htmx.trigger('#search-form', 'search');
-            }
-
-            if (updateHistory) {
-                const url = new URL(window.location);
-                url.searchParams.set('tag', tagName);
-                url.searchParams.delete('q');
-                url.searchParams.delete('p'); // Remove photo ID when filtering by tag
-                window.history.pushState({ tag: tagName }, '', url);
-            }
-        }
-
-        function clearTagFilter(triggerSearch = true) {
-            const tagInput = document.getElementById('tag-input');
-            const indicator = document.getElementById('active-tag-indicator');
-
-            if (!tagInput || !indicator) return;
-
-            if (tagInput.value === '') return; // Already clear
-
-            tagInput.value = '';
-            indicator.style.display = 'none';
-
-            if (triggerSearch) {
-                htmx.trigger('#search-form', 'search');
-                const url = new URL(window.location);
-                url.searchParams.delete('tag');
-                url.searchParams.delete('p'); // Remove photo ID when clearing tag
-                window.history.pushState({ tag: null }, '', url);
-            }
-        }
-
         function closeModal() {
             const modal = document.getElementById('photo-modal');
             modal.classList.remove('active');
             document.body.classList.remove('modal-open');
-        }
 
-        function openModal() {
-            const modal = document.getElementById('photo-modal');
-            modal.classList.add('active');
-            document.body.classList.add('modal-open');
-            resetControlTimer();
-            // URL update is handled by htmx:afterSwap for consistency
-        }
-
-        function updatePhotoUrl() {
-            const lb = document.getElementById('lightbox-inner');
-            if (lb) {
-                const photoFilename = lb.dataset.filename || '';
-                const photoId = lb.dataset.photoId;
-                const identifier = photoFilename || photoId;
-                const url = new URL(window.location);
-                if (identifier && url.searchParams.get('p') !== identifier) {
-                    url.searchParams.set('p', identifier);
-                    window.history.pushState({ modalOpen: true, photoId: identifier }, '', url);
-                }
+            // Remove ?p= from URL
+            const url = new URL(window.location);
+            if (url.searchParams.has('p')) {
+                url.searchParams.delete('p');
+                window.history.pushState({}, '', url);
             }
         }
 
+        /* ── Legacy global aliases (for tag clicks from photo_detail.html HTMX admin flows) ── */
+        function setTagFilter(tagName) {
+            if (typeof Gallery !== 'undefined') {
+                Gallery.setTag(tagName);
+            } else {
+                window.location.href = '/?tag=' + encodeURIComponent(tagName);
+            }
+        }
+        function clearTagFilter() {
+            if (typeof Gallery !== 'undefined') {
+                Gallery.clearTag();
+            }
+        }
+
+        /* ── Popstate (browser back/forward) ── */
         window.onpopstate = function (event) {
             const url = new URL(window.location);
             const slug = url.searchParams.get('p');
@@ -227,41 +188,34 @@
             const q = url.searchParams.get('q');
 
             if (slug) {
-                // If the modal should be open for this slug
                 const modal = document.getElementById('photo-modal');
                 const lb = document.getElementById('lightbox-inner');
-                // Only trigger if the photo currently shown is different
                 if (!modal.classList.contains('active') || (lb && lb.dataset.filename !== slug)) {
-                    htmx.ajax('GET', '/photo/' + slug, { target: '#modal-content', swap: 'innerHTML' });
+                    if (typeof Gallery !== 'undefined') {
+                        Gallery.openLightboxByFilename(slug);
+                    }
                 }
             } else {
-                // Otherwise close the modal if it's open
                 const modal = document.getElementById('photo-modal');
                 modal.classList.remove('active');
                 document.body.classList.remove('modal-open');
                 clearControlTimer();
             }
 
-            // Handle tag changes in URL
-            if (tag) {
-                setTagFilter(tag, false, true);
-            } else {
-                clearTagFilter(true);
+            if (typeof Gallery !== 'undefined') {
+                if (tag) {
+                    Gallery.setTag(tag);
+                } else {
+                    Gallery.clearTag();
+                }
             }
 
-            // Handle search query changes
             const searchInput = document.querySelector('.search-input');
             if (searchInput && searchInput.value !== (q || '')) {
                 searchInput.value = q || '';
-                // If we have a query, it should have already cleared the tag in the flow, 
-                // but for back navigation we ensure consistency.
-                if (q) {
-                    const tagInput = document.getElementById('tag-input');
-                    const indicator = document.getElementById('active-tag-indicator');
-                    if (tagInput) tagInput.value = '';
-                    if (indicator) indicator.style.display = 'none';
+                if (typeof Gallery !== 'undefined') {
+                    Gallery.search(q || '');
                 }
-                htmx.trigger('#search-form', 'search');
             }
         };
 
@@ -287,13 +241,11 @@
 
         // Toggle controls on tap/click on the lightbox image area
         document.getElementById('photo-modal').addEventListener('click', function (e) {
-            // Ignore clicks on buttons or admin actions
             if (e.target.closest('.lightbox-arrow, .lightbox-close, .admin-actions')) return;
 
             const controls = document.querySelector('.lightbox-controls');
             if (!controls) return;
 
-            // If clicking on the meta/details section, just show the controls (do not toggle off)
             if (e.target.closest('.lightbox-meta')) {
                 controls.classList.remove('controls-hidden');
                 resetControlTimer();
@@ -318,20 +270,13 @@
             }
         });
 
-
-
-        /* ── Swipe support ── */
+        /* ── Swipe support (now uses Gallery.navigateLightbox) ── */
         let touchstartX = 0;
         let touchstartY = 0;
         let touchendX = 0;
         let touchendY = 0;
-        function getCurrentSort() {
-            const lb = document.getElementById('lightbox-inner');
-            return lb ? (lb.dataset.sort || 'desc') : 'desc';
-        }
 
         function handleGesture() {
-
             const modal = document.getElementById('photo-modal');
             if (!modal.classList.contains('active')) return;
 
@@ -343,27 +288,16 @@
             const threshold = 60;
             const ratio = 2.0;
 
-            // Ignore if vertical movement is significant (scrolling details)
             if (Math.abs(deltaY) * ratio > Math.abs(deltaX)) return;
 
-            const sort = getCurrentSort();
             if (deltaX < -threshold) {
-                // Swiped left → Next
-                const nextId = lb.dataset.nextId;
-                if (nextId) {
-                    htmx.ajax('GET', '/photo/' + nextId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
-                }
+                Gallery.navigateLightbox('next');
             } else if (deltaX > threshold) {
-                // Swiped right → Previous
-                const prevId = lb.dataset.prevId;
-                if (prevId) {
-                    htmx.ajax('GET', '/photo/' + prevId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
-                }
+                Gallery.navigateLightbox('prev');
             }
         }
 
         document.getElementById('photo-modal').addEventListener('touchstart', e => {
-            // Ignore multi-touch (pinching/zooming)
             if (e.touches.length > 1) {
                 touchstartX = 0;
                 touchstartY = 0;
@@ -374,13 +308,14 @@
         }, { passive: true });
 
         document.getElementById('photo-modal').addEventListener('touchend', e => {
-            if (e.touches.length > 0) return; // Still some fingers down
+            if (e.touches.length > 0) return;
             touchendX = e.changedTouches[0].screenX;
             touchendY = e.changedTouches[0].screenY;
-            if (touchstartX === 0) return; // Was multi-touch
+            if (touchstartX === 0) return;
             handleGesture();
         }, { passive: true });
 
+        /* ── Keyboard navigation (now uses Gallery.navigateLightbox) ── */
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeModal();
@@ -390,50 +325,29 @@
             const modal = document.getElementById('photo-modal');
             if (!modal.classList.contains('active')) return;
 
-            const lb = document.getElementById('lightbox-inner');
-            if (!lb) return;
-
-            const sort = getCurrentSort();
-
             if (e.key === 'ArrowLeft') {
-                const prevId = lb.dataset.prevId;
-                if (prevId) {
-                    htmx.ajax('GET', '/photo/' + prevId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
-                }
+                Gallery.navigateLightbox('prev');
             } else if (e.key === 'ArrowRight') {
-                const nextId = lb.dataset.nextId;
-                if (nextId) {
-                    htmx.ajax('GET', '/photo/' + nextId + '?sort=' + sort, { target: '#modal-content', swap: 'innerHTML' });
-                }
+                Gallery.navigateLightbox('next');
             }
         });
 
+        /* ── Admin HTMX events (kept for edit/delete flows) ── */
         document.body.addEventListener('photoDeleted', function (e) {
             closeModal();
-            htmx.trigger('#search-form', 'search');
+            // Reload the page to get fresh data after deletion
+            window.location.reload();
         });
 
-        // After HTMX swaps modal content: apply slide animation + reset auto-hide timer
+        // After HTMX swaps modal content (admin edit flow): reset auto-hide timer
         document.addEventListener('htmx:afterSwap', function (e) {
-            // Photo count update
-            const cards = document.querySelectorAll('.photo-card');
-            const countEl = document.getElementById('photo-count');
-            if (countEl && cards.length > 0) {
-                countEl.textContent = cards.length + ' photo' + (cards.length !== 1 ? 's' : '');
-            }
-
-            // Reset auto-hide timer when new photo loads
             if (e.target.id === 'modal-content') {
                 resetControlTimer();
-                // Ensure the modal is VISUALLY open (e.g. on direct access)
                 const modal = document.getElementById('photo-modal');
                 if (!modal.classList.contains('active')) {
                     modal.classList.add('active');
                     document.body.classList.add('modal-open');
                 }
-
-                // Update URL for the current photo (handles both open and transition)
-                updatePhotoUrl();
             }
         });
     </script>

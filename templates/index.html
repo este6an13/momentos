@@ -6,15 +6,13 @@
         <p class="gallery-tagline">moments, collected.</p>
         <div id="active-tag-indicator" class="active-tag-chip" style="display: none;">
             <span id="active-tag-text"></span>
-            <button type="button" onclick="clearTagFilter()" class="clear-tag-btn"
+            <button type="button" onclick="Gallery.clearTag()" class="clear-tag-btn"
                 title="Clear Tag Filter">&times;</button>
         </div>
     </div>
 
-    <div id="photo-grid"
-        hx-get="/photos{% if initial_tag %}?tag={{ initial_tag }}{% elif initial_q %}?q={{ initial_q }}{% endif %}"
-        hx-trigger="load">
-        <!-- Initial loading state -->
+    <div id="photo-grid">
+        <!-- Initial loading state — replaced by gallery.js -->
         <div class="loading-state">
             <div class="loading-dot"></div>
             <div class="loading-dot"></div>
@@ -24,36 +22,38 @@
 </div>
 
 <script>
+    // Embed all photo data as JSON — single payload, no extra API call
+    window.__PHOTOS = {{ photos_json | safe }};
+</script>
+<script src="/static/js/gallery.js?v=1"></script>
+<script>
     (function () {
         const initialTag = "{{ initial_tag or '' }}";
         const initialQ = "{{ initial_q or '' }}";
         const initialPhotoId = "{{ initial_photo_id or '' }}";
 
-        const triggerInitialLoad = () => {
-            if (typeof htmx !== 'undefined' && typeof setTagFilter === 'function') {
-                if (initialTag) {
-                    // Update UI only, as photo-grid already requested filtered content
-                    setTagFilter(initialTag, false, false);
-                } else if (initialQ) {
-                    // Populate search input only
-                    const searchInput = document.querySelector('.search-input');
-                    if (searchInput) searchInput.value = initialQ;
-                }
+        function boot() {
+            Gallery.init(window.__PHOTOS, { adminMode: {{ 'true' if admin_mode else 'false' }}
+    });
 
-                if (initialPhotoId) {
-                    // Trigger opening the photo modal
-                    htmx.ajax('GET', '/photo/' + initialPhotoId, { target: '#modal-content', swap: 'innerHTML' });
-                }
-            } else {
-                setTimeout(triggerInitialLoad, 50);
-            }
-        };
+    if (initialTag) {
+        Gallery.setTag(initialTag);
+    } else if (initialQ) {
+        Gallery.search(initialQ);
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) searchInput.value = initialQ;
+    }
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', triggerInitialLoad);
-        } else {
-            triggerInitialLoad();
+    if (initialPhotoId) {
+        Gallery.openLightboxByFilename(initialPhotoId);
+    }
         }
-    })();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+    }) ();
 </script>
 {% endblock %}
