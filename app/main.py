@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import random
@@ -138,7 +139,6 @@ async def startup_event():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = None, q: Optional[str] = None, db: Session = Depends(get_db)):
     """Main gallery page — serves all photo metadata as embedded JSON"""
-    scan_photos_folder(db)
     sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
     photos = db.query(Photo).order_by(sort_column.desc()).all()
 
@@ -154,13 +154,22 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
         "image_url": get_image_url(photo.filename),
     } for photo in photos])
 
-    return templates.TemplateResponse("index.html", {
+    # Generate ETag from content hash for browser caching
+    etag = hashlib.md5(photos_json.encode()).hexdigest()
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match.strip('"') == etag:
+        return Response(status_code=304)
+
+    response = templates.TemplateResponse("index.html", {
         "request": request,
         "initial_tag": tag,
         "initial_photo_id": p,
         "initial_q": q,
         "photos_json": photos_json,
     })
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "private, no-cache"
+    return response
 
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
@@ -170,8 +179,7 @@ async def about(request: Request):
 
 @app.get("/photos", response_class=HTMLResponse)
 async def get_photos(request: Request, q: Optional[str] = None, tag: Optional[str] = None, sort: str = "desc", db: Session = Depends(get_db)):
-    """HTMX endpoint for photo grid - always syncs folder first"""
-    scan_photos_folder(db)
+    """HTMX endpoint for photo grid (admin fallback)"""
     
     query = db.query(Photo)
     if tag:
