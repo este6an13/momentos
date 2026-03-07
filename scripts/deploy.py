@@ -19,6 +19,7 @@ def main():
     region = os.getenv("GCP_REGION", "us-central1")
     public_bucket = os.getenv("GCP_BUCKET_NAME")
     private_bucket = os.getenv("GCP_DB_BUCKET_NAME")
+    cdn_domain = os.getenv("CDN_DOMAIN")
     
     if not project_id:
         print("Error: GCP_PROJECT_ID not set in .env")
@@ -37,11 +38,14 @@ def main():
     print(f"Region:       {region}")
     print(f"Public Bkt:   {public_bucket}")
     print(f"Private Bkt:  {private_bucket}")
+    print(f"CDN Domain:   {cdn_domain or '(not set)'}")
     print("-" * 38)
 
     # Construct the gcloud command
     # Using --set-env-vars to specify the backend and bucket names for production
     env_vars = f"STORAGE_BACKEND=gcp,ADMIN_MODE=false,GCP_BUCKET_NAME={public_bucket},GCP_DB_BUCKET_NAME={private_bucket}"
+    if cdn_domain:
+        env_vars += f",CDN_DOMAIN={cdn_domain}"
     if webhook_token:
         env_vars += f",WEBHOOK_TOKEN={webhook_token}"
 
