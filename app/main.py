@@ -335,6 +335,7 @@ async def handle_upload(
         bucket = get_gcp_bucket()
         if bucket:
             blob = bucket.blob(unique_filename)
+            blob.cache_control = "public, max-age=31536000"
             blob.upload_from_filename(file_path)
     else:
         IMAGES_DIR.mkdir(parents=True, exist_ok=True)
