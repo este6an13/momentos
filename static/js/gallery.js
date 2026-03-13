@@ -13,6 +13,9 @@ const Gallery = (function () {
     let currentQuery = '';
     let adminMode = false;
 
+    const IMAGE_BASE_URL = window.IMAGE_BASE_URL;
+    let observer = null;
+
     /* ── Initialization ── */
     function init(photos, options = {}) {
         allPhotos = photos;
@@ -100,9 +103,9 @@ const Gallery = (function () {
             html += '<div class="masonry-grid">';
 
             yearPhotos.forEach(photo => {
-                html += '<div class="photo-card" onclick="Gallery.openLightbox(' + photo.id + ')" role="button" tabindex="0" aria-label="' + escapeAttr(photo.title) + '">';
+                html += '<div class="photo-card skeleton-loading" onclick="Gallery.openLightbox(' + photo.id + ')" role="button" tabindex="0" aria-label="' + escapeAttr(photo.title) + '" data-photo-id="' + photo.id + '">';
                 html += '<div class="photo-thumb">';
-                html += '<img src="' + escapeAttr(photo.image_url) + '" alt="' + escapeAttr(photo.title) + '" loading="lazy">';
+                html += '<img data-photo-id="' + photo.id + '" alt="' + escapeAttr(photo.title) + '" loading="lazy">';
                 html += '<div class="photo-overlay">';
                 html += '<span class="overlay-title">' + escapeHtml(photo.title) + '</span>';
                 if (photo.location) {
@@ -128,6 +131,45 @@ const Gallery = (function () {
         if (currentSort !== 'shuffle' && years.length > 1) {
             initTimeScrubber();
         }
+
+        // Setup observer for lazy image loading
+        setupIntersectionObserver();
+    }
+
+    /* ── Lazy Image Loading ── */
+    function setupIntersectionObserver() {
+        if (observer) {
+            observer.disconnect();
+        }
+
+        observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+
+                const card = entry.target;
+                const photoId = card.getAttribute('data-photo-id');
+                if (!photoId) return;
+
+                const photo = currentPhotos.find(p => String(p.id) === String(photoId));
+                if (!photo) return;
+
+                const img = card.querySelector('img[data-photo-id]');
+                if (img && !img.src) {
+                    img.src = buildImageUrl(photo);
+                }
+
+                card.classList.remove('skeleton-loading');
+                observer.unobserve(card);
+            });
+        }, {
+            // Start loading a bit before the image enters the viewport
+            rootMargin: '200px 0px',
+        });
+
+        // Observe all cards that don't have images loaded yet
+        document.querySelectorAll('.photo-card.skeleton-loading').forEach(card => {
+            observer.observe(card);
+        });
     }
 
     /* ── Time Scrubber ── */
@@ -206,7 +248,7 @@ const Gallery = (function () {
 
         // Image
         html += '<div class="lightbox-image">';
-        html += '<img src="' + escapeAttr(photo.image_url) + '" alt="' + escapeAttr(photo.title) + '">';
+        html += '<img src="' + escapeAttr(buildImageUrl(photo)) + '" data-photo-id="' + photo.id + '" alt="' + escapeAttr(photo.title) + '">';
         html += '</div>';
 
         // Meta
@@ -365,6 +407,9 @@ const Gallery = (function () {
     }
 
     /* ── Helpers ── */
+    function buildImageUrl(photo) {
+        return IMAGE_BASE_URL + photo.filename;
+    }
     function shuffleArray(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));

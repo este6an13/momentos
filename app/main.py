@@ -50,15 +50,30 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Templates
 templates = Jinja2Templates(directory="templates")
 
+def get_image_base_url() -> str:
+    """
+    Compute the base URL for serving images.
+
+    This instance is GCP-only: we always serve from the bucket/CDN and
+    never fall back to local /static/images.
+    """
+    # Prefer CDN if configured
+    if CDN_DOMAIN:
+        return f"https://{CDN_DOMAIN}/"
+
+    # Otherwise use the public GCP bucket URL
+    if GCP_BUCKET_NAME:
+        return f"https://storage.googleapis.com/{GCP_BUCKET_NAME}/"
+
+    # If we get here, the instance is misconfigured for image serving.
+    raise RuntimeError(
+        "No CDN_DOMAIN or GCP_BUCKET_NAME configured; cannot build image base URL."
+    )
+
+
 # Register global template function for generating image URLs
 def get_image_url(filename: str) -> str:
-    if STORAGE_BACKEND == "gcp" and GCP_BUCKET_NAME:
-        if CDN_DOMAIN:
-            # If Cloudflare is fronting the bucket directly
-            return f"https://{CDN_DOMAIN}/{filename}"
-        # Fallback to direct GCP Bucket URL for local testing without CDN
-        return f"https://storage.googleapis.com/{GCP_BUCKET_NAME}/{filename}"
-    return f"/static/images/{filename}"
+    return f"{get_image_base_url()}{filename}"
 
 templates.env.globals["get_image_url"] = get_image_url
 templates.env.globals["admin_mode"] = ADMIN_MODE
@@ -151,7 +166,6 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
         "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
         "uploaded_at": photo.uploaded_at.isoformat() if photo.uploaded_at else None,
         "tags": photo.get_tags(),
-        "image_url": get_image_url(photo.filename),
     } for photo in photos])
 
     # Generate ETag from content hash for browser caching
@@ -160,13 +174,17 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
     if if_none_match and if_none_match.strip('"') == etag:
         return Response(status_code=304)
 
-    response = templates.TemplateResponse("index.html", {
-        "request": request,
-        "initial_tag": tag,
-        "initial_photo_id": p,
-        "initial_q": q,
-        "photos_json": photos_json,
-    })
+    response = templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "initial_tag": tag,
+            "initial_photo_id": p,
+            "initial_q": q,
+            "photos_json": photos_json,
+            "image_base_url": get_image_base_url(),
+        },
+    )
     response.headers["ETag"] = f'"{etag}"'
     response.headers["Cache-Control"] = "private, no-cache"
     return response
