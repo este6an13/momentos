@@ -13,6 +13,7 @@ const Gallery = (function () {
     let currentCity = '';
     let currentQuery = '';
     let adminMode = false;
+    let albumViewActive = false;  // true when showing album grid
 
     const IMAGE_BASE_URL = window.IMAGE_BASE_URL;
     let observer = null;
@@ -408,6 +409,12 @@ const Gallery = (function () {
 
     /* ── City (Album) Filtering ── */
     function setCity(location) {
+        // Exit album view if active
+        if (albumViewActive) {
+            albumViewActive = false;
+            updateAlbumBtnUI();
+        }
+
         currentCity = location;
         currentTag = '';
         currentQuery = '';
@@ -453,6 +460,116 @@ const Gallery = (function () {
     function clearCityUI() {
         const indicator = document.getElementById('active-city-indicator');
         if (indicator) indicator.style.display = 'none';
+    }
+
+    /* ── Album View (inline) ── */
+    function toggleAlbums() {
+        albumViewActive = !albumViewActive;
+        updateAlbumBtnUI();
+
+        if (albumViewActive) {
+            // Clear any active filters
+            currentTag = '';
+            currentCity = '';
+            currentQuery = '';
+            clearTagUI();
+            clearCityUI();
+            const searchInput = document.querySelector('.search-input');
+            if (searchInput) searchInput.value = '';
+
+            renderAlbumGrid();
+            updatePhotoCount(allPhotos.length);
+        } else {
+            applyFiltersAndRender();
+        }
+    }
+
+    function updateAlbumBtnUI() {
+        const btn = document.getElementById('albums-btn');
+        if (!btn) return;
+        if (albumViewActive) {
+            btn.classList.add('active');
+            btn.title = 'Show All Photos';
+        } else {
+            btn.classList.remove('active');
+            btn.title = 'View Albums';
+        }
+    }
+
+    function renderAlbumGrid() {
+        const container = document.getElementById('photo-grid');
+        if (!container) return;
+
+        // Build album data from all photos
+        const map = {};
+        allPhotos.forEach(p => {
+            const loc = (p.location || '').trim();
+            if (!loc) return;
+            if (!map[loc]) {
+                map[loc] = { location: loc, count: 0, cover: null, newestDate: '' };
+            }
+            map[loc].count++;
+            const date = p.taken_at || p.uploaded_at || '';
+            if (date > map[loc].newestDate) {
+                map[loc].newestDate = date;
+                map[loc].cover = p.filename;
+            }
+        });
+
+        const albums = Object.values(map).sort((a, b) => b.count - a.count);
+
+        if (albums.length === 0) {
+            container.innerHTML =
+                '<div class="empty-state">' +
+                '  <p class="empty-icon">📁</p>' +
+                '  <p class="empty-title">No albums yet</p>' +
+                '  <p class="empty-hint">Add locations to your photos to create albums.</p>' +
+                '</div>';
+            destroyTimeScrubber();
+            return;
+        }
+
+        let html = '<div class="album-grid">';
+        albums.forEach(album => {
+            html += '<div class="album-card" onclick="Gallery.setCity(\'' + escapeAttr(album.location.replace(/'/g, "\\'")) + '\')" role="button" tabindex="0" data-cover="' + escapeAttr(album.cover) + '">';
+            html += '<div class="album-cover-wrapper">';
+            html += '<img class="album-cover" alt="' + escapeAttr(album.location) + '" loading="lazy">';
+            html += '</div>';
+            html += '<div class="album-overlay">';
+            html += '<span class="album-name">' + escapeHtml(album.location) + '</span>';
+            html += '<span class="album-count">' + album.count + ' photo' + (album.count !== 1 ? 's' : '') + '</span>';
+            html += '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+
+        container.innerHTML = html;
+        destroyTimeScrubber();
+
+        // Lazy load album covers
+        setupAlbumObserver();
+    }
+
+    function setupAlbumObserver() {
+        if (observer) observer.disconnect();
+
+        observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                const card = entry.target;
+                const cover = card.dataset.cover;
+                if (!cover) return;
+                const img = card.querySelector('.album-cover');
+                if (img && !img.src) {
+                    img.src = IMAGE_BASE_URL + cover;
+                }
+                observer.unobserve(card);
+            });
+        }, { rootMargin: '200px 0px' });
+
+        document.querySelectorAll('.album-card').forEach(card => {
+            observer.observe(card);
+        });
     }
 
     /* ── Photo Count ── */
@@ -504,6 +621,7 @@ const Gallery = (function () {
         clearTag,
         setCity,
         clearCity,
+        toggleAlbums,
         getCurrentSort: () => currentSort,
         getCurrentPhotos: () => currentPhotos,
     };

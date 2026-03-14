@@ -49,13 +49,14 @@
                         onclick="toggleShuffle()">
                         <span class="material-symbols-outlined">shuffle</span>
                     </button>
+
+                    <button type="button" id="albums-btn" class="nav-btn-circle nav-icon-btn" title="View Albums"
+                        onclick="Gallery.toggleAlbums()">
+                        <span class="material-symbols-outlined">location_on</span>
+                    </button>
                 </div>
                 <span class="nav-count" id="photo-count"></span>
                 {% endblock %}
-                <a href="/albums"
-                    style="font-size: 0.75rem; font-weight: 300; letter-spacing: 0.08em; text-transform: lowercase; color: var(--text-muted); transition: color var(--transition); text-decoration: none;"
-                    onmouseover="this.style.color='var(--text-primary)'"
-                    onmouseout="this.style.color='var(--text-muted)'">albums</a>
                 <a href="/about"
                     style="font-size: 0.75rem; font-weight: 300; letter-spacing: 0.08em; text-transform: lowercase; color: var(--text-muted); transition: color var(--transition); text-decoration: none;"
                     onmouseover="this.style.color='var(--text-primary)'"
