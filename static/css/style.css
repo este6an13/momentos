@@ -1097,6 +1097,22 @@ a {
     }
 }
 
+/* ── Clickable Location Link ── */
+.meta-location-link,
+.meta-location-link:visited,
+.meta-location-link:active {
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity var(--transition);
+}
+
+.meta-location-link:hover {
+    opacity: 0.7;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 /* ── Album Grid ── */
 .album-grid {
     display: grid;

@@ -268,7 +268,7 @@ const Gallery = (function () {
         }
         html += '<div class="meta-fields">';
         if (photo.location) {
-            html += '<div class="meta-field"><span class="meta-label">Location</span><span class="meta-value">' + escapeHtml(photo.location) + '</span></div>';
+            html += '<div class="meta-field"><span class="meta-label">Location</span><a href="/?city=' + encodeURIComponent(photo.location) + '" class="meta-value meta-location-link" onclick="event.preventDefault(); Gallery.setCity(\'' + escapeAttr(photo.location.replace(/'/g, "\\\\'")) + '\'); closeModal();">' + escapeHtml(photo.location) + '</a></div>';
         }
         if (photo.taken_at) {
             const dateStr = formatDate(photo.taken_at);
