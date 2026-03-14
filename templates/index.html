@@ -9,6 +9,12 @@
             <button type="button" onclick="Gallery.clearTag()" class="clear-tag-btn"
                 title="Clear Tag Filter">&times;</button>
         </div>
+        <div id="active-city-indicator" class="active-tag-chip" style="display: none;">
+            <span class="material-symbols-outlined" style="font-size: 1rem; opacity: 0.7;">location_on</span>
+            <span id="active-city-text"></span>
+            <button type="button" onclick="Gallery.clearCity()" class="clear-tag-btn"
+                title="Clear City Filter">&times;</button>
+        </div>
     </div>
 
     <div id="photo-grid">
@@ -27,18 +33,24 @@
     // Expose image base URL so the frontend can construct full URLs without extra API calls
     window.IMAGE_BASE_URL = "{{ image_base_url }}";
 </script>
-<script src="/static/js/gallery.js?v=3"></script>
+<script src="/static/js/gallery.js?v=5"></script>
 <script>
     (function () {
         const initialTag = "{{ initial_tag or '' }}";
         const initialQ = "{{ initial_q or '' }}";
         const initialPhotoId = "{{ initial_photo_id or '' }}";
 
+        // Read ?city= from URL (for album links)
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialCity = urlParams.get('city') || '';
+
         function boot() {
             Gallery.init(window.__PHOTOS, { adminMode: {{ 'true' if admin_mode else 'false' }}
     });
 
-    if (initialTag) {
+    if (initialCity) {
+        Gallery.setCity(initialCity);
+    } else if (initialTag) {
         Gallery.setTag(initialTag);
     } else if (initialQ) {
         Gallery.search(initialQ);

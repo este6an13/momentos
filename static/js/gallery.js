@@ -10,6 +10,7 @@ const Gallery = (function () {
     let currentPhotos = [];       // filtered/sorted subset currently displayed
     let currentSort = 'desc';
     let currentTag = '';
+    let currentCity = '';
     let currentQuery = '';
     let adminMode = false;
 
@@ -31,6 +32,13 @@ const Gallery = (function () {
         if (currentTag) {
             filtered = filtered.filter(p =>
                 p.tags && p.tags.some(t => t.toLowerCase() === currentTag.toLowerCase())
+            );
+        }
+
+        // Apply city filter
+        if (currentCity) {
+            filtered = filtered.filter(p =>
+                p.location && p.location === currentCity
             );
         }
 
@@ -398,6 +406,55 @@ const Gallery = (function () {
         if (indicator) indicator.style.display = 'none';
     }
 
+    /* ── City (Album) Filtering ── */
+    function setCity(location) {
+        currentCity = location;
+        currentTag = '';
+        currentQuery = '';
+
+        // Clear other UI
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) searchInput.value = '';
+        clearTagUI();
+
+        // Show city chip
+        const indicator = document.getElementById('active-city-indicator');
+        const text = document.getElementById('active-city-text');
+        if (indicator && text) {
+            text.textContent = location;
+            indicator.style.display = 'inline-flex';
+        }
+
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.set('city', location);
+        url.searchParams.delete('tag');
+        url.searchParams.delete('q');
+        url.searchParams.delete('p');
+        window.history.pushState({ city: location }, '', url);
+
+        applyFiltersAndRender();
+    }
+
+    function clearCity() {
+        if (!currentCity) return;
+        currentCity = '';
+        clearCityUI();
+
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.delete('city');
+        url.searchParams.delete('p');
+        window.history.pushState({ city: null }, '', url);
+
+        applyFiltersAndRender();
+    }
+
+    function clearCityUI() {
+        const indicator = document.getElementById('active-city-indicator');
+        if (indicator) indicator.style.display = 'none';
+    }
+
     /* ── Photo Count ── */
     function updatePhotoCount(count) {
         const el = document.getElementById('photo-count');
@@ -445,6 +502,8 @@ const Gallery = (function () {
         sort,
         setTag,
         clearTag,
+        setCity,
+        clearCity,
         getCurrentSort: () => currentSort,
         getCurrentPhotos: () => currentPhotos,
     };

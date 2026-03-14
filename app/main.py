@@ -195,6 +195,30 @@ async def about(request: Request):
     return templates.TemplateResponse("about.html", {"request": request})
 
 
+@app.get("/albums", response_class=HTMLResponse)
+async def albums(request: Request, db: Session = Depends(get_db)):
+    """Albums page — groups photos by location, rendered client-side"""
+    sort_column = func.coalesce(Photo.taken_at, Photo.uploaded_at)
+    photos = db.query(Photo).order_by(sort_column.desc()).all()
+
+    photos_json = json.dumps([{
+        "id": photo.id,
+        "filename": photo.filename,
+        "title": photo.title or "",
+        "description": photo.description or "",
+        "location": photo.location or "",
+        "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
+        "uploaded_at": photo.uploaded_at.isoformat() if photo.uploaded_at else None,
+        "tags": photo.get_tags(),
+    } for photo in photos])
+
+    return templates.TemplateResponse("albums.html", {
+        "request": request,
+        "photos_json": photos_json,
+        "image_base_url": get_image_base_url(),
+    })
+
+
 @app.get("/photos", response_class=HTMLResponse)
 async def get_photos(request: Request, q: Optional[str] = None, tag: Optional[str] = None, sort: str = "desc", db: Session = Depends(get_db)):
     """HTMX endpoint for photo grid (admin fallback)"""

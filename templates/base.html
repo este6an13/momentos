@@ -7,7 +7,7 @@
     <meta name="description" content="A personal photo gallery - moments captured in time.">
     <title>{% block title %}Momentos{% endblock %}</title>
     <link rel="icon" type="image/png" href="/static/icons/favicon.png?v=2">
-    <link rel="stylesheet" href="/static/css/style.css?v=4">
+    <link rel="stylesheet" href="/static/css/style.css?v=5">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -52,6 +52,10 @@
                 </div>
                 <span class="nav-count" id="photo-count"></span>
                 {% endblock %}
+                <a href="/albums"
+                    style="font-size: 0.75rem; font-weight: 300; letter-spacing: 0.08em; text-transform: lowercase; color: var(--text-muted); transition: color var(--transition); text-decoration: none;"
+                    onmouseover="this.style.color='var(--text-primary)'"
+                    onmouseout="this.style.color='var(--text-muted)'">albums</a>
                 <a href="/about"
                     style="font-size: 0.75rem; font-weight: 300; letter-spacing: 0.08em; text-transform: lowercase; color: var(--text-muted); transition: color var(--transition); text-decoration: none;"
                     onmouseover="this.style.color='var(--text-primary)'"
@@ -207,6 +211,13 @@
                     Gallery.setTag(tag);
                 } else {
                     Gallery.clearTag();
+                }
+
+                const city = url.searchParams.get('city');
+                if (city) {
+                    Gallery.setCity(city);
+                } else {
+                    Gallery.clearCity();
                 }
             }
 

@@ -1096,3 +1096,107 @@ a {
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Album Grid ── */
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.album-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    aspect-ratio: 4 / 3;
+    cursor: pointer;
+    text-decoration: none;
+    color: #fff;
+    background-color: var(--bg-3);
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.album-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.album-cover-wrapper {
+    position: absolute;
+    inset: 0;
+}
+
+.album-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+}
+
+.album-card:hover .album-cover {
+    transform: scale(1.05);
+}
+
+.album-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.75) 0%,
+        rgba(0, 0, 0, 0.25) 40%,
+        transparent 100%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 1.5rem;
+    pointer-events: none;
+}
+
+.album-name {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.album-count {
+    font-size: 0.75rem;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.65);
+    margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+    .album-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .album-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .album-card {
+        border-radius: var(--radius-sm);
+    }
+
+    .album-overlay {
+        padding: 1rem;
+    }
+
+    .album-name {
+        font-size: 1rem;
+    }
+
+    .album-count {
+        font-size: 0.65rem;
+    }
+}
