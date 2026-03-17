@@ -43,7 +43,7 @@ def main():
 
     # Construct the gcloud command
     # Using --set-env-vars to specify the backend and bucket names for production
-    env_vars = f"STORAGE_BACKEND=gcp,ADMIN_MODE=false,GCP_BUCKET_NAME={public_bucket},GCP_DB_BUCKET_NAME={private_bucket}"
+    env_vars = f"STORAGE_BACKEND=gcp,ADMIN_MODE=false,USE_CDN=true,GCP_BUCKET_NAME={public_bucket},GCP_DB_BUCKET_NAME={private_bucket}"
     if cdn_domain:
         env_vars += f",CDN_DOMAIN={cdn_domain}"
     if webhook_token:

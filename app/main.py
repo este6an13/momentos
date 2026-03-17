@@ -24,6 +24,7 @@ load_dotenv()
 STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local").lower()
 GCP_BUCKET_NAME = os.environ.get("GCP_BUCKET_NAME")
 CDN_DOMAIN = os.environ.get("CDN_DOMAIN")
+USE_CDN = os.environ.get("USE_CDN", "true").lower() == "true"
 ADMIN_MODE = os.environ.get("ADMIN_MODE", "false").lower() == "true"
 WEBHOOK_TOKEN = os.environ.get("WEBHOOK_TOKEN")
 
@@ -57,8 +58,8 @@ def get_image_base_url() -> str:
     This instance is GCP-only: we always serve from the bucket/CDN and
     never fall back to local /static/images.
     """
-    # Prefer CDN if configured
-    if CDN_DOMAIN:
+    # Prefer CDN if configured and not disabled
+    if CDN_DOMAIN and USE_CDN:
         return f"https://{CDN_DOMAIN}/"
 
     # Otherwise use the public GCP bucket URL
