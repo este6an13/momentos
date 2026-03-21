@@ -54,10 +54,10 @@ templates = Jinja2Templates(directory="templates")
 def get_image_base_url() -> str:
     """
     Compute the base URL for serving images.
-
-    This instance is GCP-only: we always serve from the bucket/CDN and
-    never fall back to local /static/images.
     """
+    if STORAGE_BACKEND == "local":
+        return "/static/images/"
+
     # Prefer CDN if configured and not disabled
     if CDN_DOMAIN and USE_CDN:
         return f"https://{CDN_DOMAIN}/"
