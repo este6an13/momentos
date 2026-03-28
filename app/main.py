@@ -2,11 +2,12 @@ import hashlib
 import os
 import re
 import random
+import urllib.request
 from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Response
+from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Response, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -90,6 +91,18 @@ def _filename_to_title(filename: str) -> str:
     title = re.sub(r"[_\-\.]+", " ", stem).strip().title()
     return title or filename
 
+def warm_cdn_cache(url: str):
+    """
+    Fire a background GET request to warm the CDN cache for a newly uploaded image.
+    """
+    try:
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "PhotoGallery-CacheWarmer/1.0")
+        with urllib.request.urlopen(req) as response:
+            response.read(1024)
+            print(f"Successfully warmed cache for {url} (status: {response.status})")
+    except Exception as e:
+        print(f"Failed to warm cache for {url}: {e}")
 
 def scan_photos_folder(db: Session):
     """Scan static/images/ and sync with database. Disabled in GCP mode."""
@@ -327,6 +340,7 @@ async def get_upload_page(request: Request):
 @app.post("/upload")
 async def handle_upload(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(""),
     description: str = Form(""),
@@ -428,6 +442,15 @@ async def handle_upload(
     # Sync to GCP if in GCP Admin Mode
     if STORAGE_BACKEND == "gcp":
         upload_db_to_gcp("photos.db")
+    
+    try:
+        base_url = get_image_base_url()
+        # Only warm if it's a remote URL
+        if base_url.startswith("http"):
+            image_url = f"{base_url}{unique_filename}"
+            background_tasks.add_task(warm_cdn_cache, image_url)
+    except RuntimeError:
+        pass
     
     return {"message": "success"}
 
