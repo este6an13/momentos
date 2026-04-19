@@ -195,9 +195,9 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
         return Response(status_code=304)
 
     response = templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
+        request,
+        name="index.html",
+        context={
             "initial_tag": tag,
             "initial_photo_id": p,
             "initial_q": q,
@@ -213,7 +213,7 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
     """About page"""
-    return templates.TemplateResponse("about.html", {"request": request})
+    return templates.TemplateResponse(request, name="about.html")
 
 
 
@@ -259,10 +259,9 @@ async def get_photos(request: Request, q: Optional[str] = None, tag: Optional[st
                 photos_by_year[year] = []
             photos_by_year[year].append(p)
 
-    return templates.TemplateResponse("photo_grid.html", {
-        "request": request,
+    return templates.TemplateResponse(request, name="photo_grid.html", context={
         "photos_by_year": photos_by_year,
-        "current_sort": sort
+        "current_sort": sort,
     })
 
 
@@ -303,8 +302,7 @@ async def get_photo_detail(photo_id_or_slug: str, request: Request, sort: str = 
     prev_id = all_ids[idx - 1] if idx > 0 else None
     next_id = all_ids[idx + 1] if idx >= 0 and idx < len(all_ids) - 1 else None
 
-    return templates.TemplateResponse("photo_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, name="photo_detail.html", context={
         "photo": photo,
         "prev_id": prev_id,
         "next_id": next_id,
@@ -331,10 +329,9 @@ async def rescan_photos(request: Request, sort: str = "desc", db: Session = Depe
             photos_by_year[year] = []
         photos_by_year[year].append(p)
         
-    return templates.TemplateResponse("photo_grid.html", {
-        "request": request,
+    return templates.TemplateResponse(request, name="photo_grid.html", context={
         "photos_by_year": photos_by_year,
-        "current_sort": sort
+        "current_sort": sort,
     })
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -342,7 +339,7 @@ async def get_upload_page(request: Request):
     """Render the upload interface"""
     if not ADMIN_MODE:
         raise HTTPException(status_code=403, detail="Upload interface only available in Admin Mode.")
-    return templates.TemplateResponse("upload.html", {"request": request})
+    return templates.TemplateResponse(request, name="upload.html")
 
 @app.post("/upload")
 async def handle_upload(
@@ -508,8 +505,7 @@ async def get_photo_edit(photo_id: int, request: Request, db: Session = Depends(
         existing = db.query(LocationCover).filter(LocationCover.location == photo.location).first()
         is_cover = existing is not None and existing.photo_id == photo.id
 
-    return templates.TemplateResponse("photo_edit_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, name="photo_edit_form.html", context={
         "photo": photo,
         "is_cover": is_cover,
     })
@@ -581,8 +577,7 @@ async def update_photo(
     prev_id = all_ids[idx - 1] if idx > 0 else None
     next_id = all_ids[idx + 1] if idx >= 0 and idx < len(all_ids) - 1 else None
 
-    return templates.TemplateResponse("photo_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, name="photo_detail.html", context={
         "photo": photo,
         "prev_id": prev_id,
         "next_id": next_id,
