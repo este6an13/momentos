@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 import json
@@ -31,3 +31,11 @@ class Photo(Base):
     def set_tags(self, tag_list):
         """Set tags as JSON string"""
         self.tags = json.dumps(tag_list)
+
+
+class LocationCover(Base):
+    """Maps a location string to a specific photo to use as the album cover."""
+    __tablename__ = "location_covers"
+
+    location = Column(String, primary_key=True)
+    photo_id = Column(Integer, ForeignKey("photos.id", ondelete="CASCADE"), nullable=False)

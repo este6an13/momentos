@@ -518,6 +518,14 @@ const Gallery = (function () {
 
         const albums = Object.values(map).sort((a, b) => b.count - a.count);
 
+        // Apply admin-set cover overrides (fall back to newest photo)
+        const overrides = window.__COVER_OVERRIDES || {};
+        albums.forEach(album => {
+            if (overrides[album.location]) {
+                album.cover = overrides[album.location];
+            }
+        });
+
         if (albums.length === 0) {
             container.innerHTML =
                 '<div class="empty-state">' +

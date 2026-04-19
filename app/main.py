@@ -41,7 +41,7 @@ def get_gcp_bucket():
 from google.cloud import storage
 
 from .database import get_db, init_db, engine
-from .models import Photo
+from .models import Photo, LocationCover
 from .gcp_utils import upload_db_to_gcp, download_db_from_gcp
 
 app = FastAPI(title="Photo Gallery")
@@ -182,6 +182,12 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
         "tags": photo.get_tags(),
     } for photo in photos])
 
+    # Build location -> cover filename mapping from LocationCover table
+    cover_rows = db.query(LocationCover.location, Photo.filename).join(
+        Photo, LocationCover.photo_id == Photo.id
+    ).all()
+    cover_overrides_json = json.dumps({row.location: row.filename for row in cover_rows})
+
     # Generate ETag from content hash for browser caching
     etag = hashlib.md5(photos_json.encode()).hexdigest()
     if_none_match = request.headers.get("if-none-match")
@@ -196,6 +202,7 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
             "initial_photo_id": p,
             "initial_q": q,
             "photos_json": photos_json,
+            "cover_overrides_json": cover_overrides_json,
             "image_base_url": get_image_base_url(),
         },
     )
@@ -495,9 +502,16 @@ async def get_photo_edit(photo_id: int, request: Request, db: Session = Depends(
     if not photo:
         return Response(status_code=404)
 
+    # Check if this photo is currently the cover for its location
+    is_cover = False
+    if photo.location:
+        existing = db.query(LocationCover).filter(LocationCover.location == photo.location).first()
+        is_cover = existing is not None and existing.photo_id == photo.id
+
     return templates.TemplateResponse("photo_edit_form.html", {
         "request": request,
-        "photo": photo
+        "photo": photo,
+        "is_cover": is_cover,
     })
 
 @app.post("/photo/{photo_id}/edit", response_class=HTMLResponse)
@@ -509,6 +523,7 @@ async def update_photo(
     location: str = Form(""),
     taken_at: str = Form(""),
     tags: str = Form(""),
+    set_as_cover: str = Form(""),
     db: Session = Depends(get_db)
 ):
     if not ADMIN_MODE:
@@ -532,6 +547,22 @@ async def update_photo(
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     photo.set_tags(tag_list)
+
+    # Handle album cover setting
+    if location and set_as_cover == "on":
+        existing = db.query(LocationCover).filter(LocationCover.location == location).first()
+        if existing:
+            existing.photo_id = photo.id
+        else:
+            db.add(LocationCover(location=location, photo_id=photo.id))
+    elif location and set_as_cover != "on":
+        # If unchecked, remove cover override only if this photo was the cover
+        existing = db.query(LocationCover).filter(
+            LocationCover.location == location,
+            LocationCover.photo_id == photo.id
+        ).first()
+        if existing:
+            db.delete(existing)
 
     db.commit()
 

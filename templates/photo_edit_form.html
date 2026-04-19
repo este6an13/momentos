@@ -28,8 +28,18 @@
             <div style="display: flex; flex-direction: column; gap: 0.3rem;">
                 <label
                     style="font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em;">Location</label>
-                <input type="text" name="location" value="{{ photo.location or '' }}"
-                    style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 4px; font-family: inherit;">
+                <input type="text" name="location" id="edit-location-input" value="{{ photo.location or '' }}"
+                    style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 4px; font-family: inherit;"
+                    oninput="document.getElementById('cover-checkbox-row').style.display = this.value.trim() ? 'flex' : 'none'">
+            </div>
+
+            <div id="cover-checkbox-row"
+                style="display: {{ 'flex' if photo.location else 'none' }}; align-items: center; gap: 0.6rem; padding: 0.5rem 0;">
+                <input type="checkbox" name="set_as_cover" id="edit-set-as-cover"
+                    {{ 'checked' if is_cover else '' }}
+                    style="accent-color: #c8b89a; width: 16px; height: 16px; cursor: pointer;">
+                <label for="edit-set-as-cover"
+                    style="font-size: 0.8rem; color: #aaa; cursor: pointer; user-select: none;">Set as album cover</label>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 0.3rem;">
