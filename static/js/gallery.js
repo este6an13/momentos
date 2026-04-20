@@ -105,6 +105,12 @@ const Gallery = (function () {
         let html = '<div class="gallery-content"><div class="timeline-sections">';
 
         const years = Object.keys(groups);
+        // JS objects auto-sort numeric keys ascending; re-sort to match user's chosen order
+        if (currentSort === 'desc') {
+            years.sort((a, b) => b - a);
+        } else if (currentSort === 'asc') {
+            years.sort((a, b) => a - b);
+        }
         years.forEach(year => {
             const yearPhotos = groups[year];
             html += '<div class="year-section" id="' + year + '" style="margin-top: 2rem; scroll-margin-top: 80px;">';
