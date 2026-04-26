@@ -11,9 +11,14 @@ const Gallery = (function () {
     let currentSort = 'desc';
     let currentTag = '';
     let currentCity = '';
+    let currentYear = '';
     let currentQuery = '';
     let adminMode = false;
     let albumViewActive = false;  // true when showing album grid
+
+    /* ── Pagination ── */
+    let currentPage = 1;
+    const PAGE_SIZE = 50;
 
     const IMAGE_BASE_URL = window.IMAGE_BASE_URL;
     let observer = null;
@@ -22,6 +27,12 @@ const Gallery = (function () {
     function init(photos, options = {}) {
         allPhotos = photos;
         adminMode = options.adminMode || false;
+
+        // Restore page from URL if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const pageParam = parseInt(urlParams.get('page'), 10);
+        if (pageParam && pageParam > 0) currentPage = pageParam;
+
         applyFiltersAndRender();
     }
 
@@ -41,6 +52,15 @@ const Gallery = (function () {
             filtered = filtered.filter(p =>
                 p.location && p.location === currentCity
             );
+        }
+
+        // Apply year filter
+        if (currentYear) {
+            const yr = parseInt(currentYear, 10);
+            filtered = filtered.filter(p => {
+                const dt = p.taken_at || p.uploaded_at;
+                return dt && new Date(dt).getFullYear() === yr;
+            });
         }
 
         // Apply search filter
@@ -69,8 +89,19 @@ const Gallery = (function () {
         }
 
         currentPhotos = filtered;
-        renderGrid(filtered);
-        updatePhotoCount(filtered.length);
+
+        // Pagination: slice to current page
+        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pagePhotos = filtered.slice(start, start + PAGE_SIZE);
+
+        renderGrid(pagePhotos);
+        if (totalPages > 1) {
+            renderPagination(totalPages, currentPage);
+        }
+        renderYearPills();
+        updatePhotoCount(filtered.length, totalPages);
     }
 
     /* ── Grid Rendering ── */
@@ -133,19 +164,8 @@ const Gallery = (function () {
         });
 
         html += '</div>';
-
-        // Time scrubber
-        if (currentSort !== 'shuffle' && years.length > 1) {
-            html += buildTimeScrubber(years);
-        }
-
         html += '</div>';
         container.innerHTML = html;
-
-        // Initialize scrubber behavior
-        if (currentSort !== 'shuffle' && years.length > 1) {
-            initTimeScrubber();
-        }
 
         // Setup observer for lazy image loading
         setupIntersectionObserver();
@@ -230,6 +250,74 @@ const Gallery = (function () {
     function destroyTimeScrubber() {
         const existing = document.getElementById('time-scrubber');
         if (existing) existing.remove();
+    }
+
+    /* ── Pagination ── */
+    function renderPagination(totalPages, page) {
+        const container = document.getElementById('photo-grid');
+        if (!container) return;
+
+        let html = '<div class="pagination-bar">';
+
+        // Prev button
+        html += '<button class="pagination-btn pagination-prev' + (page <= 1 ? ' disabled' : '') + '"'
+            + (page > 1 ? ' onclick="Gallery.goToPage(' + (page - 1) + ')"' : ' disabled')
+            + ' aria-label="Previous page">&lsaquo;</button>';
+
+        // Page numbers with ellipsis
+        const pages = buildPageNumbers(totalPages, page);
+        pages.forEach(p => {
+            if (p === '...') {
+                html += '<span class="pagination-ellipsis">&hellip;</span>';
+            } else {
+                html += '<button class="pagination-btn pagination-num' + (p === page ? ' active' : '') + '"'
+                    + ' onclick="Gallery.goToPage(' + p + ')">' + p + '</button>';
+            }
+        });
+
+        // Next button
+        html += '<button class="pagination-btn pagination-next' + (page >= totalPages ? ' disabled' : '') + '"'
+            + (page < totalPages ? ' onclick="Gallery.goToPage(' + (page + 1) + ')"' : ' disabled')
+            + ' aria-label="Next page">&rsaquo;</button>';
+
+        html += '</div>';
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    function buildPageNumbers(total, current) {
+        if (total <= 7) {
+            return Array.from({ length: total }, (_, i) => i + 1);
+        }
+        const pages = [];
+        pages.push(1);
+        if (current > 3) pages.push('...');
+        const start = Math.max(2, current - 1);
+        const end = Math.min(total - 1, current + 1);
+        for (let i = start; i <= end; i++) pages.push(i);
+        if (current < total - 2) pages.push('...');
+        pages.push(total);
+        return pages;
+    }
+
+    function goToPage(n) {
+        const totalPages = Math.max(1, Math.ceil(currentPhotos.length / PAGE_SIZE));
+        if (n < 1 || n > totalPages || n === currentPage) return;
+        currentPage = n;
+        updatePageURL();
+        applyFiltersAndRender();
+        // Scroll to top of grid
+        const grid = document.getElementById('photo-grid');
+        if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function updatePageURL() {
+        const url = new URL(window.location);
+        if (currentPage > 1) {
+            url.searchParams.set('page', currentPage);
+        } else {
+            url.searchParams.delete('page');
+        }
+        window.history.pushState({ page: currentPage }, '', url);
     }
 
     /* ── Lightbox ── */
@@ -338,6 +426,20 @@ const Gallery = (function () {
         const newIdx = direction === 'prev' ? idx - 1 : idx + 1;
         if (newIdx < 0 || newIdx >= currentPhotos.length) return;
 
+        // Cross page boundary if needed
+        const newPage = Math.floor(newIdx / PAGE_SIZE) + 1;
+        if (newPage !== currentPage) {
+            currentPage = newPage;
+            updatePageURL();
+            // Re-render grid in background (user is in lightbox)
+            const totalPages = Math.max(1, Math.ceil(currentPhotos.length / PAGE_SIZE));
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const pagePhotos = currentPhotos.slice(start, start + PAGE_SIZE);
+            renderGrid(pagePhotos);
+            if (totalPages > 1) renderPagination(totalPages, currentPage);
+            updatePhotoCount(currentPhotos.length, totalPages);
+        }
+
         renderLightbox(newIdx);
     }
 
@@ -358,22 +460,29 @@ const Gallery = (function () {
         if (currentQuery) {
             clearTagUI();
             currentTag = '';
+            currentYear = '';
+            clearYearUI();
         }
+        currentPage = 1;
         applyFiltersAndRender();
     }
 
     function sort(mode) {
         currentSort = mode;
+        currentPage = 1;
         applyFiltersAndRender();
     }
 
     function setTag(tagName) {
         currentTag = tagName;
         currentQuery = '';
+        currentYear = '';
+        currentPage = 1;
 
         // Update UI
         const searchInput = document.querySelector('.search-input');
         if (searchInput) searchInput.value = '';
+        clearYearUI();
 
         const indicator = document.getElementById('active-tag-indicator');
         const text = document.getElementById('active-tag-text');
@@ -387,6 +496,8 @@ const Gallery = (function () {
         url.searchParams.set('tag', tagName);
         url.searchParams.delete('q');
         url.searchParams.delete('p');
+        url.searchParams.delete('page');
+        url.searchParams.delete('year');
         window.history.pushState({ tag: tagName }, '', url);
 
         applyFiltersAndRender();
@@ -395,12 +506,14 @@ const Gallery = (function () {
     function clearTag() {
         if (!currentTag) return;
         currentTag = '';
+        currentPage = 1;
         clearTagUI();
 
         // Update URL
         const url = new URL(window.location);
         url.searchParams.delete('tag');
         url.searchParams.delete('p');
+        url.searchParams.delete('page');
         window.history.pushState({ tag: null }, '', url);
 
         applyFiltersAndRender();
@@ -424,11 +537,14 @@ const Gallery = (function () {
         currentCity = location;
         currentTag = '';
         currentQuery = '';
+        currentYear = '';
+        currentPage = 1;
 
         // Clear other UI
         const searchInput = document.querySelector('.search-input');
         if (searchInput) searchInput.value = '';
         clearTagUI();
+        clearYearUI();
 
         // Show city chip
         const indicator = document.getElementById('active-city-indicator');
@@ -444,6 +560,8 @@ const Gallery = (function () {
         url.searchParams.delete('tag');
         url.searchParams.delete('q');
         url.searchParams.delete('p');
+        url.searchParams.delete('page');
+        url.searchParams.delete('year');
         window.history.pushState({ city: location }, '', url);
 
         applyFiltersAndRender();
@@ -452,12 +570,14 @@ const Gallery = (function () {
     function clearCity() {
         if (!currentCity) return;
         currentCity = '';
+        currentPage = 1;
         clearCityUI();
 
         // Update URL
         const url = new URL(window.location);
         url.searchParams.delete('city');
         url.searchParams.delete('p');
+        url.searchParams.delete('page');
         window.history.pushState({ city: null }, '', url);
 
         applyFiltersAndRender();
@@ -466,6 +586,93 @@ const Gallery = (function () {
     function clearCityUI() {
         const indicator = document.getElementById('active-city-indicator');
         if (indicator) indicator.style.display = 'none';
+    }
+
+    /* ── Year Filtering ── */
+    function setYear(year) {
+        // Exit album view if active
+        if (albumViewActive) {
+            albumViewActive = false;
+            updateAlbumBtnUI();
+        }
+
+        currentYear = String(year);
+        currentTag = '';
+        currentCity = '';
+        currentQuery = '';
+        currentPage = 1;
+
+        // Clear other UI
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) searchInput.value = '';
+        clearTagUI();
+        clearCityUI();
+
+        // Show year chip
+        const indicator = document.getElementById('active-year-indicator');
+        const text = document.getElementById('active-year-text');
+        if (indicator && text) {
+            text.textContent = year;
+            indicator.style.display = 'inline-flex';
+        }
+
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.set('year', year);
+        url.searchParams.delete('tag');
+        url.searchParams.delete('city');
+        url.searchParams.delete('q');
+        url.searchParams.delete('p');
+        url.searchParams.delete('page');
+        window.history.pushState({ year: year }, '', url);
+
+        applyFiltersAndRender();
+    }
+
+    function clearYear() {
+        if (!currentYear) return;
+        currentYear = '';
+        currentPage = 1;
+        clearYearUI();
+
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.delete('year');
+        url.searchParams.delete('p');
+        url.searchParams.delete('page');
+        window.history.pushState({ year: null }, '', url);
+
+        applyFiltersAndRender();
+    }
+
+    function clearYearUI() {
+        const indicator = document.getElementById('active-year-indicator');
+        if (indicator) indicator.style.display = 'none';
+    }
+
+    /* ── Year Pills (rendered below pagination) ── */
+    function renderYearPills() {
+        const container = document.getElementById('photo-grid');
+        if (!container || albumViewActive || currentSort === 'shuffle') return;
+
+        // Collect all unique years from the full dataset (allPhotos), respecting active filters except year
+        const yearSet = new Set();
+        allPhotos.forEach(p => {
+            const dt = p.taken_at || p.uploaded_at;
+            if (dt) yearSet.add(new Date(dt).getFullYear());
+        });
+
+        const years = Array.from(yearSet).sort((a, b) => b - a);
+        if (years.length <= 1) return;
+
+        let html = '<div class="year-pills">';
+        years.forEach(y => {
+            const isActive = currentYear && parseInt(currentYear, 10) === y;
+            html += '<button class="year-pill' + (isActive ? ' active' : '') + '"'
+                + ' onclick="Gallery.' + (isActive ? 'clearYear' : 'setYear') + '(' + y + ')">' + y + '</button>';
+        });
+        html += '</div>';
+        container.insertAdjacentHTML('beforeend', html);
     }
 
     /* ── Album View (inline) ── */
@@ -477,15 +684,19 @@ const Gallery = (function () {
             // Clear any active filters
             currentTag = '';
             currentCity = '';
+            currentYear = '';
             currentQuery = '';
+            currentPage = 1;
             clearTagUI();
             clearCityUI();
+            clearYearUI();
             const searchInput = document.querySelector('.search-input');
             if (searchInput) searchInput.value = '';
 
             renderAlbumGrid();
             updatePhotoCount(allPhotos.length);
         } else {
+            currentPage = 1;
             applyFiltersAndRender();
         }
     }
@@ -587,10 +798,14 @@ const Gallery = (function () {
     }
 
     /* ── Photo Count ── */
-    function updatePhotoCount(count) {
+    function updatePhotoCount(count, totalPages) {
         const el = document.getElementById('photo-count');
         if (el) {
-            el.textContent = count + ' photo' + (count !== 1 ? 's' : '');
+            let text = count + ' photo' + (count !== 1 ? 's' : '');
+            if (totalPages && totalPages > 1) {
+                text += ' · ' + currentPage + '/' + totalPages;
+            }
+            el.textContent = text;
         }
     }
 
@@ -635,7 +850,10 @@ const Gallery = (function () {
         clearTag,
         setCity,
         clearCity,
+        setYear,
+        clearYear,
         toggleAlbums,
+        goToPage,
         getCurrentSort: () => currentSort,
         getCurrentPhotos: () => currentPhotos,
     };

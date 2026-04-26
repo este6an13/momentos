@@ -1113,6 +1113,146 @@ a {
     text-underline-offset: 2px;
 }
 
+/* ── Pagination ── */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 2.5rem 0 1rem;
+}
+
+.pagination-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all var(--transition);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.pagination-btn:hover:not(.disabled):not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.pagination-btn.active {
+    background: rgba(200, 184, 154, 0.15);
+    color: var(--text-accent);
+    border-color: var(--text-accent);
+    font-weight: 500;
+}
+
+.pagination-btn.disabled {
+    opacity: 0.25;
+    cursor: default;
+    pointer-events: none;
+}
+
+.pagination-prev,
+.pagination-next {
+    font-size: 1.2rem;
+    font-weight: 300;
+}
+
+.pagination-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 36px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+}
+
+@media (max-width: 480px) {
+    .pagination-bar {
+        gap: 0.25rem;
+        padding: 2rem 0 0.5rem;
+    }
+
+    .pagination-btn {
+        min-width: 32px;
+        height: 32px;
+        font-size: 0.75rem;
+    }
+
+    .pagination-prev,
+    .pagination-next {
+        font-size: 1rem;
+    }
+
+    .pagination-ellipsis {
+        width: 20px;
+        height: 32px;
+    }
+}
+
+/* ── Year Pills ── */
+.year-pills {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding: 0.5rem 0 1.5rem;
+}
+
+.year-pill {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all var(--transition);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.year-pill:hover:not(.active) {
+    color: var(--text-secondary);
+    border-color: var(--border-hover);
+}
+
+.year-pill.active {
+    background: rgba(200, 184, 154, 0.12);
+    color: var(--text-accent);
+    border-color: var(--text-accent);
+    font-weight: 500;
+}
+
+@media (max-width: 480px) {
+    .year-pills {
+        gap: 0.2rem;
+        padding: 0.25rem 0 1rem;
+    }
+
+    .year-pill {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.65rem;
+    }
+}
+
 /* ── Album Grid ── */
 .album-grid {
     display: grid;

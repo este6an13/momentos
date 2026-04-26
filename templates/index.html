@@ -15,6 +15,12 @@
             <button type="button" onclick="Gallery.clearCity()" class="clear-tag-btn"
                 title="Clear City Filter">&times;</button>
         </div>
+        <div id="active-year-indicator" class="active-tag-chip" style="display: none;">
+            <span class="material-symbols-outlined" style="font-size: 1rem; opacity: 0.7;">calendar_month</span>
+            <span id="active-year-text"></span>
+            <button type="button" onclick="Gallery.clearYear()" class="clear-tag-btn"
+                title="Clear Year Filter">&times;</button>
+        </div>
     </div>
 
     <div id="photo-grid">
@@ -35,22 +41,25 @@
     // Expose image base URL so the frontend can construct full URLs without extra API calls
     window.IMAGE_BASE_URL = "{{ image_base_url }}";
 </script>
-<script src="/static/js/gallery.js?v=9"></script>
+<script src="/static/js/gallery.js?v=11"></script>
 <script>
     (function () {
         const initialTag = "{{ initial_tag or '' }}";
         const initialQ = "{{ initial_q or '' }}";
         const initialPhotoId = "{{ initial_photo_id or '' }}";
 
-        // Read ?city= from URL (for album links)
+        // Read URL params (for shareable links)
         const urlParams = new URLSearchParams(window.location.search);
         const initialCity = urlParams.get('city') || '';
+        const initialYear = urlParams.get('year') || '';
 
         function boot() {
             Gallery.init(window.__PHOTOS, { adminMode: {{ 'true' if admin_mode else 'false' }}
     });
 
-    if (initialCity) {
+    if (initialYear) {
+        Gallery.setYear(initialYear);
+    } else if (initialCity) {
         Gallery.setCity(initialCity);
     } else if (initialTag) {
         Gallery.setTag(initialTag);
