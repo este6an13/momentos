@@ -43,6 +43,7 @@ from google.cloud import storage
 from .database import get_db, init_db, engine
 from .models import Photo, LocationCover
 from .gcp_utils import upload_db_to_gcp, download_db_from_gcp
+from .thumbnails import make_thumbnail, thumb_path, upload_thumbnail
 
 app = FastAPI(title="Photo Gallery")
 
@@ -77,7 +78,11 @@ def get_image_base_url() -> str:
 def get_image_url(filename: str) -> str:
     return f"{get_image_base_url()}{filename}"
 
+def get_thumb_url(filename: str) -> str:
+    return f"{get_image_base_url()}{thumb_path(filename)}"
+
 templates.env.globals["get_image_url"] = get_image_url
+templates.env.globals["get_thumb_url"] = get_thumb_url
 templates.env.globals["admin_mode"] = ADMIN_MODE
 
 IMAGES_DIR = Path("static/images")
@@ -90,6 +95,21 @@ def _filename_to_title(filename: str) -> str:
     # Replace underscores/hyphens/dots with spaces, then title-case
     title = re.sub(r"[_\-\.]+", " ", stem).strip().title()
     return title or filename
+
+def save_thumbnail(source: Path, filename: str):
+    """Store a photo's thumbnail. The site falls back to the original if this fails."""
+    try:
+        if STORAGE_BACKEND == "gcp":
+            bucket = get_gcp_bucket()
+            if bucket:
+                local_thumb = source.with_name(f"{source.name}.webp")
+                make_thumbnail(source, local_thumb)
+                upload_thumbnail(bucket, local_thumb, filename)
+                local_thumb.unlink()
+        else:
+            make_thumbnail(source, IMAGES_DIR / thumb_path(filename))
+    except Exception as e:
+        print(f"Error creating thumbnail for {filename}: {e}")
 
 def warm_cdn_cache(url: str):
     """
@@ -188,8 +208,10 @@ async def index(request: Request, tag: Optional[str] = None, p: Optional[str] = 
     ).all()
     cover_overrides_json = json.dumps({row.location: row.filename for row in cover_rows})
 
-    # Generate ETag from content hash for browser caching
-    etag = hashlib.md5(photos_json.encode()).hexdigest()
+    # Generate ETag for browser caching. K_REVISION changes on every Cloud Run
+    # deploy, so returning visitors pick up new templates and scripts.
+    etag_source = photos_json + cover_overrides_json + os.environ.get("K_REVISION", "")
+    etag = hashlib.md5(etag_source.encode()).hexdigest()
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match.strip('"') == etag:
         return Response(status_code=304)
@@ -409,6 +431,8 @@ async def handle_upload(
     except Exception as e:
         print(f"Error extracting EXIF: {e}")
         
+    save_thumbnail(file_path, unique_filename)
+
     # Clean up temp file if in GCP mode
     if STORAGE_BACKEND == "gcp" and file_path.exists():
         file_path.unlink()
@@ -453,6 +477,7 @@ async def handle_upload(
         if base_url.startswith("http"):
             image_url = f"{base_url}{unique_filename}"
             background_tasks.add_task(warm_cdn_cache, image_url)
+            background_tasks.add_task(warm_cdn_cache, get_thumb_url(unique_filename))
     except RuntimeError:
         pass
     
@@ -471,13 +496,14 @@ async def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     if STORAGE_BACKEND == "gcp" and GCP_BUCKET_NAME:
         bucket = get_gcp_bucket()
         if bucket:
-            blob = bucket.blob(photo.filename)
-            if blob.exists():
-                blob.delete()
+            for name in (photo.filename, thumb_path(photo.filename)):
+                blob = bucket.blob(name)
+                if blob.exists():
+                    blob.delete()
     else:
-        file_path = IMAGES_DIR / photo.filename
-        if file_path.exists():
-            file_path.unlink()
+        for file_path in (IMAGES_DIR / photo.filename, IMAGES_DIR / thumb_path(photo.filename)):
+            if file_path.exists():
+                file_path.unlink()
 
     db.delete(photo)
     db.commit()

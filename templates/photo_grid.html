@@ -11,7 +11,8 @@
                 <div class="photo-card" hx-get="/photo/{{ photo.id }}" hx-target="#modal-content" hx-swap="innerHTML"
                     hx-on::after-request="openModal()" role="button" tabindex="0" aria-label="{{ photo.title }}">
                     <div class="photo-thumb">
-                        <img src="{{ get_image_url(photo.filename) }}" alt="{{ photo.title }}" loading="lazy">
+                        <img src="{{ get_thumb_url(photo.filename) }}" alt="{{ photo.title }}" loading="lazy"
+                            onerror="this.onerror=null;this.src='{{ get_image_url(photo.filename) }}'">
                         <div class="photo-overlay">
                             <span class="overlay-title">{{ photo.title }}</span>
                             {% if photo.location %}

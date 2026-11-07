@@ -191,7 +191,7 @@ const Gallery = (function () {
 
                 const img = card.querySelector('img[data-photo-id]');
                 if (img && !img.src) {
-                    img.src = buildImageUrl(photo);
+                    loadThumbnail(img, photo.filename);
                 }
 
                 card.classList.remove('skeleton-loading');
@@ -392,6 +392,8 @@ const Gallery = (function () {
         const modalContent = document.getElementById('modal-content');
         modalContent.innerHTML = html;
 
+        preloadNeighbours(idx);
+
         // Process HTMX for admin buttons if present
         if (adminMode && typeof htmx !== 'undefined') {
             htmx.process(modalContent);
@@ -413,6 +415,22 @@ const Gallery = (function () {
         if (url.searchParams.get('p') !== String(identifier)) {
             url.searchParams.set('p', identifier);
             window.history.pushState({ modalOpen: true, photoId: identifier }, '', url);
+        }
+    }
+
+    // Fetches the next and previous originals once the current one has loaded,
+    // so they don't compete with it for bandwidth.
+    function preloadNeighbours(idx) {
+        const current = document.querySelector('#lightbox-inner .lightbox-image img');
+        const preload = () => {
+            [idx + 1, idx - 1].forEach(i => {
+                if (currentPhotos[i]) new Image().src = buildImageUrl(currentPhotos[i]);
+            });
+        };
+        if (!current || current.complete) {
+            preload();
+        } else {
+            current.addEventListener('load', preload, { once: true });
         }
     }
 
@@ -876,7 +894,7 @@ const Gallery = (function () {
                 if (!cover) return;
                 const img = card.querySelector('.album-cover');
                 if (img && !img.src) {
-                    img.src = IMAGE_BASE_URL + cover;
+                    loadThumbnail(img, cover);
                 }
                 observer.unobserve(card);
             });
@@ -903,6 +921,16 @@ const Gallery = (function () {
     function buildImageUrl(photo) {
         return IMAGE_BASE_URL + photo.filename;
     }
+
+    // Grid and album images use a small copy, falling back to the original.
+    function loadThumbnail(img, filename) {
+        img.onerror = () => {
+            img.onerror = null;
+            img.src = IMAGE_BASE_URL + filename;
+        };
+        img.src = IMAGE_BASE_URL + 'thumbs/' + filename + '.webp';
+    }
+
     function shuffleArray(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));

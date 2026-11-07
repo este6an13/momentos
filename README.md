@@ -59,7 +59,12 @@ The project can be deployed to **Google Cloud Run**, with images served from a *
       ```
     - Cloud Run grabs exactly this `.db` file on startup or receives automated webhook pings to download updates.
 
-4. **Deploying to Cloud Run**: You can deploy the application using the deployment script:
+4. **Thumbnails**: The grid and album covers use small WebP copies stored under `thumbs/` in the images bucket. New uploads get one automatically. To create any that are missing, run:
+   ```bash
+   uv run py scripts/generate_thumbnails.py
+   ```
+
+5. **Deploying to Cloud Run**: You can deploy the application using the deployment script:
    ```bash
    uv run py scripts/deploy.py
    ```
