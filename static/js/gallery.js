@@ -15,6 +15,7 @@ const Gallery = (function () {
     let currentQuery = '';
     let adminMode = false;
     let albumViewActive = false;  // true when showing album grid
+    let currentRegion = '';       // region being browsed in album view ('' = region list)
 
     /* ── Pagination ── */
     let currentPage = 1;
@@ -457,6 +458,14 @@ const Gallery = (function () {
     /* ── Public API for search/sort/tag ── */
     function search(query) {
         currentQuery = query.trim();
+        if (albumViewActive) {
+            if (!currentQuery) return;
+            leaveAlbumView();
+            const url = new URL(window.location);
+            url.searchParams.delete('albums');
+            url.searchParams.delete('region');
+            window.history.replaceState({}, '', url);
+        }
         if (currentQuery) {
             clearTagUI();
             currentTag = '';
@@ -470,6 +479,7 @@ const Gallery = (function () {
     function sort(mode) {
         currentSort = mode;
         currentPage = 1;
+        if (albumViewActive) return;  // applied when the photo grid is next shown
         applyFiltersAndRender();
     }
 
@@ -527,12 +537,8 @@ const Gallery = (function () {
     }
 
     /* ── City (Album) Filtering ── */
-    function setCity(location) {
-        // Exit album view if active
-        if (albumViewActive) {
-            albumViewActive = false;
-            updateAlbumBtnUI();
-        }
+    function setCity(location, options = {}) {
+        leaveAlbumView();
 
         currentCity = location;
         currentTag = '';
@@ -562,7 +568,11 @@ const Gallery = (function () {
         url.searchParams.delete('p');
         url.searchParams.delete('page');
         url.searchParams.delete('year');
-        window.history.pushState({ city: location }, '', url);
+        url.searchParams.delete('albums');
+        url.searchParams.delete('region');
+        if (options.push !== false) {
+            window.history.pushState({ city: location }, '', url);
+        }
 
         applyFiltersAndRender();
     }
@@ -590,11 +600,7 @@ const Gallery = (function () {
 
     /* ── Year Filtering ── */
     function setYear(year) {
-        // Exit album view if active
-        if (albumViewActive) {
-            albumViewActive = false;
-            updateAlbumBtnUI();
-        }
+        leaveAlbumView();
 
         currentYear = String(year);
         currentTag = '';
@@ -624,6 +630,8 @@ const Gallery = (function () {
         url.searchParams.delete('q');
         url.searchParams.delete('p');
         url.searchParams.delete('page');
+        url.searchParams.delete('albums');
+        url.searchParams.delete('region');
         window.history.pushState({ year: year }, '', url);
 
         applyFiltersAndRender();
@@ -677,28 +685,77 @@ const Gallery = (function () {
 
     /* ── Album View (inline) ── */
     function toggleAlbums() {
-        albumViewActive = !albumViewActive;
+        if (albumViewActive) {
+            hideAlbums();
+        } else {
+            showAlbums();
+        }
+    }
+
+    // Shows the region list, or the cities of `region` when one is given.
+    function showAlbums(region = '', options = {}) {
+        const albums = buildCityAlbums();
+        const known = albums.some(a => regionOf(a.location) === region);
+
+        albumViewActive = true;
+        currentRegion = known ? region : '';
         updateAlbumBtnUI();
 
-        if (albumViewActive) {
-            // Clear any active filters
-            currentTag = '';
-            currentCity = '';
-            currentYear = '';
-            currentQuery = '';
-            currentPage = 1;
-            clearTagUI();
-            clearCityUI();
-            clearYearUI();
-            const searchInput = document.querySelector('.search-input');
-            if (searchInput) searchInput.value = '';
+        // Clear any active filters
+        currentTag = '';
+        currentCity = '';
+        currentYear = '';
+        currentQuery = '';
+        currentPage = 1;
+        clearTagUI();
+        clearCityUI();
+        clearYearUI();
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) searchInput.value = '';
 
-            renderAlbumGrid();
-            updatePhotoCount(allPhotos.length);
-        } else {
-            currentPage = 1;
-            applyFiltersAndRender();
+        const indicator = document.getElementById('active-region-indicator');
+        const text = document.getElementById('active-region-text');
+        if (indicator && text) {
+            text.textContent = currentRegion;
+            indicator.style.display = currentRegion ? 'inline-flex' : 'none';
         }
+
+        if (options.push !== false) {
+            const url = new URL(window.location);
+            ['tag', 'city', 'year', 'q', 'p', 'page'].forEach(k => url.searchParams.delete(k));
+            url.searchParams.set('albums', '1');
+            if (currentRegion) {
+                url.searchParams.set('region', currentRegion);
+            } else {
+                url.searchParams.delete('region');
+            }
+            window.history.pushState({ albums: true, region: currentRegion }, '', url);
+        }
+
+        renderAlbumGrid(albums);
+    }
+
+    function hideAlbums(options = {}) {
+        if (!albumViewActive) return;
+        leaveAlbumView();
+        currentPage = 1;
+
+        if (options.push !== false) {
+            const url = new URL(window.location);
+            url.searchParams.delete('albums');
+            url.searchParams.delete('region');
+            window.history.pushState({ albums: false }, '', url);
+        }
+
+        applyFiltersAndRender();
+    }
+
+    function leaveAlbumView() {
+        albumViewActive = false;
+        currentRegion = '';
+        updateAlbumBtnUI();
+        const indicator = document.getElementById('active-region-indicator');
+        if (indicator) indicator.style.display = 'none';
     }
 
     function updateAlbumBtnUI() {
@@ -713,11 +770,12 @@ const Gallery = (function () {
         }
     }
 
-    function renderAlbumGrid() {
-        const container = document.getElementById('photo-grid');
-        if (!container) return;
+    // Locations are stored as "City, Region"; the region is the last part.
+    function regionOf(location) {
+        return location.split(',').pop().trim();
+    }
 
-        // Build album data from all photos
+    function buildCityAlbums() {
         const map = {};
         allPhotos.forEach(p => {
             const loc = (p.location || '').trim();
@@ -743,7 +801,27 @@ const Gallery = (function () {
             }
         });
 
-        if (albums.length === 0) {
+        return albums;
+    }
+
+    // Groups city albums by region. A region uses the cover of its largest city.
+    function buildRegionAlbums(cityAlbums) {
+        const map = {};
+        cityAlbums.forEach(album => {
+            const region = regionOf(album.location);
+            if (!map[region]) {
+                map[region] = { region: region, count: 0, cover: album.cover };
+            }
+            map[region].count += album.count;
+        });
+        return Object.values(map).sort((a, b) => b.count - a.count);
+    }
+
+    function renderAlbumGrid(cityAlbums) {
+        const container = document.getElementById('photo-grid');
+        if (!container) return;
+
+        if (cityAlbums.length === 0) {
             container.innerHTML =
                 '<div class="empty-state">' +
                 '  <p class="empty-icon">📁</p>' +
@@ -751,18 +829,29 @@ const Gallery = (function () {
                 '  <p class="empty-hint">Add locations to your photos to create albums.</p>' +
                 '</div>';
             destroyTimeScrubber();
+            updatePhotoCount(0);
             return;
         }
 
+        let cards;
+        if (currentRegion) {
+            cards = cityAlbums
+                .filter(album => regionOf(album.location) === currentRegion)
+                .map(album => ({ name: album.location, count: album.count, cover: album.cover, action: 'setCity' }));
+        } else {
+            cards = buildRegionAlbums(cityAlbums)
+                .map(album => ({ name: album.region, count: album.count, cover: album.cover, action: 'showAlbums' }));
+        }
+
         let html = '<div class="album-grid">';
-        albums.forEach(album => {
-            html += '<div class="album-card" onclick="Gallery.setCity(\'' + escapeAttr(album.location.replace(/'/g, "\\'")) + '\')" role="button" tabindex="0" data-cover="' + escapeAttr(album.cover) + '">';
+        cards.forEach(card => {
+            html += '<div class="album-card" onclick="Gallery.' + card.action + '(\'' + escapeAttr(card.name.replace(/'/g, "\\'")) + '\')" role="button" tabindex="0" data-cover="' + escapeAttr(card.cover) + '">';
             html += '<div class="album-cover-wrapper">';
-            html += '<img class="album-cover" alt="' + escapeAttr(album.location) + '" loading="lazy">';
+            html += '<img class="album-cover" alt="' + escapeAttr(card.name) + '" loading="lazy">';
             html += '</div>';
             html += '<div class="album-overlay">';
-            html += '<span class="album-name">' + escapeHtml(album.location) + '</span>';
-            html += '<span class="album-count">' + album.count + ' photo' + (album.count !== 1 ? 's' : '') + '</span>';
+            html += '<span class="album-name">' + escapeHtml(card.name) + '</span>';
+            html += '<span class="album-count">' + card.count + ' photo' + (card.count !== 1 ? 's' : '') + '</span>';
             html += '</div>';
             html += '</div>';
         });
@@ -770,6 +859,7 @@ const Gallery = (function () {
 
         container.innerHTML = html;
         destroyTimeScrubber();
+        updatePhotoCount(cards.reduce((sum, card) => sum + card.count, 0));
 
         // Lazy load album covers
         setupAlbumObserver();
@@ -853,6 +943,8 @@ const Gallery = (function () {
         setYear,
         clearYear,
         toggleAlbums,
+        showAlbums,
+        hideAlbums,
         goToPage,
         getCurrentSort: () => currentSort,
         getCurrentPhotos: () => currentPhotos,

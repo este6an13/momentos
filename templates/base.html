@@ -204,7 +204,14 @@
                 clearControlTimer();
             }
 
+            if (typeof Gallery !== 'undefined' && url.searchParams.has('albums')) {
+                Gallery.showAlbums(url.searchParams.get('region') || '', { push: false });
+                return;
+            }
+
             if (typeof Gallery !== 'undefined') {
+                Gallery.hideAlbums({ push: false });
+
                 if (tag) {
                     Gallery.setTag(tag);
                 } else {
@@ -213,7 +220,7 @@
 
                 const city = url.searchParams.get('city');
                 if (city) {
-                    Gallery.setCity(city);
+                    Gallery.setCity(city, { push: false });
                 } else {
                     Gallery.clearCity();
                 }
